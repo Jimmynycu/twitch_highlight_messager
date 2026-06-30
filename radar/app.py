@@ -1,7 +1,11 @@
-"""Wire source -> scorer -> sink and serve the panel.
+"""Wire source -> scorer -> sink, serve the panel, and gate on login.
 
-The pipeline is the `pump` coroutine; the brain it uses lives in a mutable slot so
-the panel can switch brains live (POST /brain) without a restart.
+Not authed -> serve the login screen, no chat. Authed -> serve the panel and pump
+the logged-in user's real channel. The pump runs as a task that restarts on
+login / channel change / logout. Brains switch live via /brain.
+
+Dev shortcuts (skip login): RADAR_MOCK=1 (canned chat) or RADAR_CHANNEL=<name>
+(anonymous real chat, no login).
 """
 from __future__ import annotations
 import asyncio
@@ -14,11 +18,13 @@ from pathlib import Path
 
 from aiohttp import web
 
+from . import auth
 from .config import Config
 from .scorer import get_scorer, SCORERS
 from .sink import WebPanelSink
 from .source import MockSource, TwitchSource
 from .presets import BRAINS
+
 
 def _web_dir() -> Path:
     base = getattr(sys, "_MEIPASS", None)            # PyInstaller one-file unpack dir
@@ -37,41 +43,96 @@ async def pump(source, holder: dict, sink: WebPanelSink, window_size: int) -> No
             sink.emit(hit.to_event())
 
 
-def _bind_streamer(scorer, cfg: Config) -> None:
-    if hasattr(scorer, "streamer") and cfg.channel not in ("", "(mock)"):
-        scorer.streamer = cfg.channel.lstrip("#").lower()
+def _bind_streamer(scorer, channel: str) -> None:
+    if hasattr(scorer, "streamer") and channel and channel != "(mock)":
+        scorer.streamer = channel.lstrip("#").lower()
 
 
 def build_app(cfg: Config) -> web.Application:
-    scorer = get_scorer(cfg.scorer)                       # fails loud on bad name
-    _bind_streamer(scorer, cfg)
-    holder = {"scorer": scorer}
-    source = MockSource(cfg.mock_rate) if cfg.mock else TwitchSource(cfg.channel)
+    holder = {"scorer": get_scorer(cfg.scorer)}
     sink = WebPanelSink()
+    state = {"task": None, "channel": None}
+
+    forced_mock = bool(os.environ.get("RADAR_MOCK"))
+    dev_channel = os.environ.get("RADAR_CHANNEL", "").strip()
+
+    def authed() -> bool:
+        return bool(forced_mock or dev_channel or auth.status()["twitch"])
+
+    def resolve_channel() -> str:
+        if forced_mock:
+            return "(mock)"
+        if dev_channel:
+            return dev_channel
+        st = auth.status()
+        return st["channel"] if st["twitch"] else ""
+
+    def start_pump() -> None:
+        if state["task"]:
+            state["task"].cancel()
+            state["task"] = None
+        ch = resolve_channel()
+        state["channel"] = ch or None
+        if not ch:
+            return
+        _bind_streamer(holder["scorer"], ch)
+        src = MockSource(cfg.mock_rate) if ch == "(mock)" else TwitchSource(ch)
+        state["task"] = asyncio.create_task(pump(src, holder, sink, cfg.window))
 
     async def index(_r):
-        return web.FileResponse(WEB / "panel.html")
+        return web.FileResponse(WEB / ("panel.html" if authed() else "login.html"))
 
     async def health(_r):
         return web.json_response({"ok": True, "brain": holder["scorer"].name,
-                                  "source": "mock" if cfg.mock else cfg.channel})
+                                  "channel": state["channel"], "authed": authed()})
+
+    async def auth_status(_r):
+        return web.json_response(auth.status())
+
+    async def twitch_start(request):
+        cid = (await request.json()).get("client_id", "").strip()
+        if not cid:
+            return web.json_response({"status": "error", "error": "client_id required"}, status=400)
+        try:
+            return web.json_response({"status": "ok", **auth.twitch_start(cid)})
+        except Exception as e:
+            return web.json_response({"status": "error", "error": str(e)[:200]}, status=502)
+
+    async def twitch_poll(request):
+        res = auth.twitch_poll((await request.json()).get("device_code", ""))
+        if res.get("status") == "ok":
+            start_pump()
+        return web.json_response(res)
+
+    async def openai_login(_r):
+        return web.json_response(auth.openai_connect())
+
+    async def do_logout(_r):
+        auth.logout()
+        if state["task"]:
+            state["task"].cancel()
+            state["task"] = None
+        state["channel"] = None
+        return web.json_response({"ok": True})
+
+    async def set_channel(request):
+        ch = (await request.json()).get("channel", "").strip()
+        if ch:
+            auth.set_channel(ch)
+            start_pump()
+        return web.json_response({"ok": bool(ch), "channel": state["channel"]})
 
     async def brains(_r):
         active = holder["scorer"].name
-        return web.json_response([
-            {**b, "available": b["name"] in SCORERS, "active": b["name"] == active}
-            for b in BRAINS
-        ])
+        return web.json_response([{**b, "available": b["name"] in SCORERS,
+                                   "active": b["name"] == active} for b in BRAINS])
 
     async def set_brain(request):
-        try:
-            name = (await request.json()).get("name", "")
-        except Exception:
-            name = ""
+        name = (await request.json()).get("name", "")
         if name not in SCORERS:
-            return web.json_response({"ok": False, "error": "unknown or unavailable brain"}, status=400)
+            return web.json_response({"ok": False, "error": "unknown brain"}, status=400)
         sc = get_scorer(name)
-        _bind_streamer(sc, cfg)
+        _bind_streamer(sc, state["channel"] or "")
         holder["scorer"] = sc
         return web.json_response({"ok": True, "active": name})
 
@@ -81,16 +142,23 @@ def build_app(cfg: Config) -> web.Application:
     app.router.add_get("/health", health)
     app.router.add_get("/brains", brains)
     app.router.add_post("/brain", set_brain)
+    app.router.add_get("/auth/status", auth_status)
+    app.router.add_post("/auth/twitch/start", twitch_start)
+    app.router.add_post("/auth/twitch/poll", twitch_poll)
+    app.router.add_post("/auth/openai", openai_login)
+    app.router.add_post("/auth/logout", do_logout)
+    app.router.add_post("/channel", set_channel)
 
-    async def _start(a: web.Application):
-        a["pump"] = asyncio.create_task(pump(source, holder, sink, cfg.window))
+    async def _start(_a):
+        start_pump()
 
-    async def _stop(a: web.Application):
-        a["pump"].cancel()
-        try:
-            await a["pump"]
-        except asyncio.CancelledError:
-            pass
+    async def _stop(_a):
+        if state["task"]:
+            state["task"].cancel()
+            try:
+                await state["task"]
+            except asyncio.CancelledError:
+                pass
 
     app.on_startup.append(_start)
     app.on_cleanup.append(_stop)
@@ -105,12 +173,10 @@ def _open(url: str) -> None:
 
 
 def run() -> None:
+    """Dev entry: server + browser. (The packaged app uses radar.desktop instead.)"""
     cfg = Config.load()
     url = f"http://localhost:{cfg.port}"
-    src = "mock" if cfg.mock else f"#{cfg.channel}"
-    print(f"Highlight Radar -> {url}   source={src}   brain={cfg.scorer}")
-    if cfg.mock:
-        print("  (mock mode — set RADAR_CHANNEL=<channel> for live Twitch chat)")
+    print(f"Highlight Radar -> {url}   brain={cfg.scorer}")
     if os.environ.get("RADAR_NO_BROWSER", "").lower() not in ("1", "true", "yes", "on"):
-        threading.Timer(1.2, lambda: _open(url)).start()   # pop the panel open on launch
+        threading.Timer(1.2, lambda: _open(url)).start()
     web.run_app(build_app(cfg), host="127.0.0.1", port=cfg.port, print=None)

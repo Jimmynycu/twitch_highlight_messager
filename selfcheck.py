@@ -183,6 +183,23 @@ def check_subscription_default():
         sys.modules.pop("ai_sub_auth", None)
 
 
+def check_auth_store():
+    """Token persistence: status / set_channel / save / logout (temp dir, no network)."""
+    import pathlib
+    import tempfile
+    import radar.auth as a
+    tmp = pathlib.Path(tempfile.mkdtemp())
+    a.APP_DIR, a.TOKENS = tmp, tmp / "tokens.json"
+    assert a.status()["twitch"] is False
+    a.set_channel("SomeChannel")
+    assert a.watch_channel() == "somechannel"
+    a._save({"twitch": {"access_token": "x", "login": "bob"}, "watch_channel": "somechannel"})
+    s = a.status()
+    assert s["twitch"] and s["login"] == "bob" and s["channel"] == "somechannel"
+    a.logout()
+    assert a.status()["twitch"] is False
+
+
 if __name__ == "__main__":
     check_scorer()
     check_source()
@@ -193,4 +210,5 @@ if __name__ == "__main__":
     check_llm_registration()
     check_llm_client_parse()
     check_subscription_default()
+    check_auth_store()
     print("selfcheck OK")

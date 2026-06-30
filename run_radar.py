@@ -3,7 +3,7 @@
 Double-clicking the built `radar.exe` runs this: starts the local server and pops
 the panel open in the browser. Same as `python -m radar`, but frozen.
 """
-from radar.app import run
+from radar.desktop import main
 
 if __name__ == "__main__":
-    run()
+    main()

@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Highlight Radar — Connect</title>
+<style>
+  :root{--bg:#13111A;--frame:#0E0C14;--surface:#1C1926;--surface-2:#242031;--hair:#2E2A3D;
+    --text:#ECE9F2;--text-2:#9C95AE;--text-3:#6B6580;--accent:#A970FF;--twitch:#9146FF;--good:#5BD6A0;--warn:#FFB454;
+    --sans:"Segoe UI Variable Text","Segoe UI",system-ui,sans-serif;--mono:ui-monospace,"Cascadia Code","Consolas",monospace;}
+  *{box-sizing:border-box}body{margin:0;background:var(--frame);color:var(--text);font-family:var(--sans);line-height:1.5;min-height:100vh;}
+  .wrap{max-width:460px;margin:0 auto;padding:1.8rem 1.1rem 3rem;}
+  header{display:flex;align-items:center;gap:.6rem;margin-bottom:.3rem;}
+  header .logo{color:var(--accent)}
+  .name{font-weight:650;font-size:1.05rem}
+  .csub{font-family:var(--mono);font-size:.6rem;letter-spacing:.16em;text-transform:uppercase;color:var(--text-3);margin-top:.12rem}
+  .intro{color:var(--text-2);font-size:.9rem;margin:.4rem 0 1.5rem}
+  .card{background:var(--surface);border:1px solid var(--hair);border-radius:13px;padding:1rem 1.1rem;margin-bottom:.8rem}
+  .card.req{border-color:rgba(145,70,255,.35)}
+  .row{display:flex;align-items:center;gap:.7rem;margin-bottom:.7rem}
+  .tile{width:38px;height:38px;border-radius:10px;display:grid;place-items:center;flex-shrink:0}
+  .tile.tw{background:rgba(145,70,255,.16);color:var(--twitch)}
+  .tile.ai{background:rgba(16,163,127,.16);color:#10A37F}
+  .pname{font-weight:600}
+  .psub{font-size:.8rem;color:var(--text-2)}
+  .lbl{display:block;font-family:var(--mono);font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;color:var(--text-3);margin:.2rem 0 .35rem}
+  .inp{width:100%;background:var(--frame);border:1px solid var(--hair);border-radius:9px;color:var(--text);font-family:var(--mono);font-size:.85rem;padding:.55rem .7rem}
+  .inp:focus{outline:none;border-color:var(--accent)}
+  .help{display:inline-block;font-size:.78rem;color:var(--accent);margin:.45rem 0 .2rem}
+  .btn{margin-top:.7rem;width:100%;border:none;border-radius:9px;font-family:var(--sans);font-size:.9rem;font-weight:650;padding:.6rem;cursor:pointer}
+  .btn.tw{background:var(--twitch);color:#fff}
+  .btn.ghost{background:transparent;border:1px solid var(--hair);color:var(--text-2)}
+  .btn:disabled{opacity:.5;cursor:not-allowed}
+  .out{margin-top:.7rem;font-size:.85rem;color:var(--text-2);min-height:1px}
+  .out .code{font-family:var(--mono);font-size:1.2rem;font-weight:700;letter-spacing:.2em;color:var(--text);background:var(--surface-2);border:1px dashed var(--hair);border-radius:7px;padding:.2rem .5rem;display:inline-block;margin:.3rem 0}
+  .out a{color:var(--accent)} .muted{color:var(--text-3)}
+  .foot{font-size:.76rem;color:var(--text-3);margin-top:1.2rem;line-height:1.5}
+  .foot a{color:var(--text-2)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <svg class="logo" viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><circle cx="6" cy="18" r="1.9" fill="currentColor" stroke="none"/><path d="M6 13.6 A4.4 4.4 0 0 1 10.4 18"/><path d="M6 9.1 A8.9 8.9 0 0 1 14.9 18"/><path d="M6 4.6 A13.4 13.4 0 0 1 19.4 18"/></svg>
+    <div><div class="name">Highlight Radar</div><div class="csub">connect to start</div></div>
+  </header>
+  <p class="intro">Sign in once — the app remembers it. Twitch is required to read your chat; ChatGPT is optional for the smart brains.</p>
+
+  <div class="card req">
+    <div class="row"><div class="tile tw"><svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M4 3 3 7v12h4v2h3l2-2h3l5-5V3H4zm15 8-3 3h-4l-2 2v-2H7V5h12v6z"/><path d="M13 8h2v4h-2zM16 8h2v4h-2z"/></svg></div>
+      <div><div class="pname">Twitch</div><div class="psub">read your channel's chat — required</div></div></div>
+    <label class="lbl" for="cid">Twitch app Client ID</label>
+    <input id="cid" class="inp" placeholder="paste from your Twitch dev app" autocomplete="off">
+    <a class="help" href="https://dev.twitch.tv/console/apps/create" target="_blank" rel="noopener">How to get a Client ID (2 min) →</a>
+    <button id="twbtn" class="btn tw">Login with Twitch</button>
+    <div id="twout" class="out"></div>
+  </div>
+
+  <div class="card">
+    <div class="row"><div class="tile ai"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 3v18M4.5 7.5l15 9M19.5 7.5l-15 9"/></svg></div>
+      <div><div class="pname">ChatGPT subscription</div><div class="psub">reuse your sub for the smart brains — optional</div></div></div>
+    <button id="aibtn" class="btn ghost">Connect ChatGPT</button>
+    <div id="aiout" class="out"></div>
+  </div>
+
+  <p class="foot">When the Twitch redirect setting is asked for during app creation, use <code>http://localhost</code>. Your tokens are stored locally in <code>%APPDATA%\HighlightRadar</code> — never sent anywhere but Twitch/OpenAI. <a href="https://dev.twitch.tv/console/apps/create" target="_blank" rel="noopener">Create a Twitch app</a>.</p>
+</div>
+<script>
+(function(){
+  var J={'Content-Type':'application/json'};
+  function post(u,b){return fetch(u,{method:'POST',headers:J,body:b?JSON.stringify(b):null}).then(function(r){return r.json();});}
+  var twbtn=document.getElementById('twbtn'), twout=document.getElementById('twout');
+  twbtn.onclick=function(){
+    var cid=document.getElementById('cid').value.trim();
+    if(!cid){twout.textContent='Enter your Client ID first.';return;}
+    twbtn.disabled=true; twout.textContent='Starting Twitch login…';
+    post('/auth/twitch/start',{client_id:cid}).then(function(r){
+      if(r.status!=='ok'){twout.textContent='Error: '+(r.error||'failed'); twbtn.disabled=false; return;}
+      var dc=r.device_code, uri=r.verification_uri||'https://www.twitch.tv/activate', code=r.user_code, ms=(r.interval||5)*1000;
+      twout.innerHTML='<b>1.</b> Go to <a href="'+uri+'" target="_blank" rel="noopener">'+uri+'</a><br><b>2.</b> Enter code <span class="code">'+code+'</span><br><span class="muted">waiting for you to authorize…</span>';
+      try{window.open(uri,'_blank');}catch(e){}
+      var t=setInterval(function(){
+        post('/auth/twitch/poll',{device_code:dc}).then(function(p){
+          if(p.status==='ok'){clearInterval(t); twout.textContent='Connected as '+(p.login||'you')+' — loading panel…'; setTimeout(function(){location.reload();},700);}
+          else if(p.status==='error'){clearInterval(t); twout.textContent='Error: '+p.error; twbtn.disabled=false;}
+        }).catch(function(){});
+      }, ms);
+    }).catch(function(e){twout.textContent='Error: '+e; twbtn.disabled=false;});
+  };
+  var aibtn=document.getElementById('aibtn'), aiout=document.getElementById('aiout');
+  aibtn.onclick=function(){
+    aibtn.disabled=true; aiout.textContent='Opening ChatGPT login… (a browser window may appear)';
+    post('/auth/openai').then(function(r){
+      aiout.textContent = r.status==='ok' ? 'ChatGPT connected ✓' : ('Could not connect: '+(r.error||'unavailable'));
+      aibtn.disabled=false;
+    }).catch(function(e){aiout.textContent='Error: '+e; aibtn.disabled=false;});
+  };
+})();
+</script>
+</body>
+</html>
