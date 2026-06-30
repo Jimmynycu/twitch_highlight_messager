@@ -73,5 +73,5 @@ selfcheck.py     `python selfcheck.py` — runnable, no network
 - [x] Four rule brains, switchable **live** from the panel dropdown: `heuristic` (Balanced), `crowd_pulse`, `community`, `question`
 - [x] Brain presets from the research pass; LLM presets (`answer_chat`, `everything_smart`, `safe_and_quiet`) implemented (`LLMBrain`, provider-agnostic) — auto-enable when `OPENAI_API_KEY` is set, otherwise shown as "needs key"
 - [x] End-to-end QA — `selfcheck.py` green (incl. LLM brain + registration seam) + live panel / SSE / brain-switch verified on Windows
-- [x] `ai-sub-auth` adapter wired (opt-in `RADAR_AI_SUBAUTH=1`) to reuse a ChatGPT subscription for the LLM brains — your one-time `ai.connect()` login takes it live (ships untested without that login)
+- [x] `ai-sub-auth` adapter wired (opt-in `RADAR_AI_SUBAUTH=1`) to reuse a ChatGPT subscription — **unverified**: not on PyPI (install from source), API assumed from its README, and needs your one-time `ai.connect()` login. The `OPENAI_API_KEY` path is the tested LLM route.
 - [ ] TwitchIO OAuth for sub / cheer / raid events (full Community First)
