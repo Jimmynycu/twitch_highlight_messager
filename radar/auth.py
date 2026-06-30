@@ -17,7 +17,7 @@ STORE = APP_DIR / "settings.json"
 
 def _load() -> dict:
     try:
-        return json.loads(STORE.read_text(encoding="utf-8"))
+        return json.loads(STORE.read_text(encoding="utf-8-sig"))   # -sig: tolerate a BOM
     except Exception:
         return {}
 

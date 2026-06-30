@@ -46,7 +46,7 @@ def check_config():
     os.environ.pop("RADAR_CHANNEL", None)
     os.environ.pop("RADAR_MOCK", None)
     c = Config.load()
-    assert c.mock is True and c.scorer == "question" and c.port == 8080
+    assert c.mock is True and c.scorer == "heuristic" and c.port == 8080
 
 
 def check_heuristic():

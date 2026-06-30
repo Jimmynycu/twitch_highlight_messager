@@ -34,7 +34,7 @@ class Config:
         return cls(
             mock=forced_mock or not channel,         # no channel set -> mock
             channel=channel or "(mock)",
-            scorer=os.environ.get("RADAR_SCORER", "question"),
+            scorer=os.environ.get("RADAR_SCORER", "heuristic"),   # Balanced — surfaces signal out of the box
             port=int(os.environ.get("RADAR_PORT", "8080")),
             window=int(os.environ.get("RADAR_WINDOW", "200")),
             mock_rate=float(os.environ.get("RADAR_MOCK_RATE", "2.0")),
