@@ -76,7 +76,7 @@
       <select class="brainsel" id="brainsel" title="Switch brain — applies live"></select>
       <div class="chan" id="status"><span class="livedot"></span><span id="statustxt">connecting…</span></div>
       <button class="iconctl" id="pause" aria-label="Pause feed" title="Pause feed"><svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg></button>
-      <button class="iconctl" id="logout" aria-label="Log out / switch account" title="Log out / switch account"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg></button>
+      <button class="iconctl" id="logout" aria-label="Change channel" title="Change channel"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg></button>
     </div>
   </header>
   <div class="filters">
@@ -160,8 +160,8 @@
   // logout / switch account -> clears tokens, back to the login screen
   var lo=document.getElementById("logout");
   if(lo) lo.onclick=function(){
-    if(!confirm("Log out? You'll sign in again next time (use this to switch accounts).")) return;
-    fetch("/auth/logout",{method:"POST"}).then(function(){location.reload();}).catch(function(){location.reload();});
+    var ch=prompt("Watch which channel?"); if(!ch) return;
+    fetch("/channel",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({channel:ch.replace(/^#/,"").trim()})}).then(function(){location.reload();}).catch(function(){location.reload();});
   };
 
   // live stream

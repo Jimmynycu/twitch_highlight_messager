@@ -1,11 +1,8 @@
-"""Wire source -> scorer -> sink, serve the panel, and gate on login.
+"""Wire source -> scorer -> sink, serve the panel. Pick a channel, watch real chat.
 
-Not authed -> serve the login screen, no chat. Authed -> serve the panel and pump
-the logged-in user's real channel. The pump runs as a task that restarts on
-login / channel change / logout. Brains switch live via /brain.
-
-Dev shortcuts (skip login): RADAR_MOCK=1 (canned chat) or RADAR_CHANNEL=<name>
-(anonymous real chat, no login).
+No login: reading Twitch chat is anonymous. First run (no channel) serves the channel
+picker; once a channel is set, the panel streams its real chat. Dev shortcuts:
+RADAR_MOCK=1 (canned chat) or RADAR_CHANNEL=<name> (skip the picker).
 """
 from __future__ import annotations
 import asyncio
@@ -52,26 +49,19 @@ def build_app(cfg: Config) -> web.Application:
     holder = {"scorer": get_scorer(cfg.scorer)}
     sink = WebPanelSink()
     state = {"task": None, "channel": None}
-
     forced_mock = bool(os.environ.get("RADAR_MOCK"))
     dev_channel = os.environ.get("RADAR_CHANNEL", "").strip()
 
-    def authed() -> bool:
-        return bool(forced_mock or dev_channel or auth.status()["twitch"])
-
-    def resolve_channel() -> str:
+    def channel() -> str:
         if forced_mock:
             return "(mock)"
-        if dev_channel:
-            return dev_channel
-        st = auth.status()
-        return st["channel"] if st["twitch"] else ""
+        return dev_channel or auth.watch_channel()
 
     def start_pump() -> None:
         if state["task"]:
             state["task"].cancel()
             state["task"] = None
-        ch = resolve_channel()
+        ch = channel()
         state["channel"] = ch or None
         if not ch:
             return
@@ -80,40 +70,10 @@ def build_app(cfg: Config) -> web.Application:
         state["task"] = asyncio.create_task(pump(src, holder, sink, cfg.window))
 
     async def index(_r):
-        return web.FileResponse(WEB / ("panel.html" if authed() else "login.html"))
+        return web.FileResponse(WEB / ("panel.html" if channel() else "login.html"))
 
     async def health(_r):
-        return web.json_response({"ok": True, "brain": holder["scorer"].name,
-                                  "channel": state["channel"], "authed": authed()})
-
-    async def auth_status(_r):
-        return web.json_response(auth.status())
-
-    async def twitch_login_ep(request):
-        b = await request.json()
-        cid, sec = b.get("client_id", "").strip(), b.get("client_secret", "").strip()
-        if not (cid and sec):
-            return web.json_response({"status": "error", "error": "client_id and client_secret required"}, status=400)
-        loop = asyncio.get_running_loop()
-        res = await loop.run_in_executor(None, auth.twitch_login, cid, sec)   # blocking -> off the loop
-        if res.get("status") == "ok":
-            start_pump()
-        return web.json_response(res)
-
-    async def openai_login(_r):
-        loop = asyncio.get_running_loop()
-        # off the event loop: ai_sub_auth calls asyncio.run() internally, which
-        # crashes if run inside the server's running loop (the bug you hit).
-        res = await loop.run_in_executor(None, auth.openai_connect)
-        return web.json_response(res)
-
-    async def do_logout(_r):
-        auth.logout()
-        if state["task"]:
-            state["task"].cancel()
-            state["task"] = None
-        state["channel"] = None
-        return web.json_response({"ok": True})
+        return web.json_response({"ok": True, "brain": holder["scorer"].name, "channel": state["channel"]})
 
     async def set_channel(request):
         ch = (await request.json()).get("channel", "").strip()
@@ -142,10 +102,6 @@ def build_app(cfg: Config) -> web.Application:
     app.router.add_get("/health", health)
     app.router.add_get("/brains", brains)
     app.router.add_post("/brain", set_brain)
-    app.router.add_get("/auth/status", auth_status)
-    app.router.add_post("/auth/twitch/login", twitch_login_ep)
-    app.router.add_post("/auth/openai", openai_login)
-    app.router.add_post("/auth/logout", do_logout)
     app.router.add_post("/channel", set_channel)
 
     async def _start(_a):
@@ -172,7 +128,7 @@ def _open(url: str) -> None:
 
 
 def run() -> None:
-    """Dev entry: server + browser. (The packaged app uses radar.desktop instead.)"""
+    """Dev entry: server + browser. (The packaged app uses radar.desktop.)"""
     cfg = Config.load()
     url = f"http://localhost:{cfg.port}"
     print(f"Highlight Radar -> {url}   brain={cfg.scorer}")

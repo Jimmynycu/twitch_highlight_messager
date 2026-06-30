@@ -170,7 +170,7 @@ def check_subscription_default():
 
     fake.AI = AI
     sys.modules["ai_sub_auth"] = fake
-    os.environ.pop("RADAR_LLM", None)                # default == sub
+    os.environ["RADAR_LLM"] = "sub"                  # force the subscription backend
     os.environ.pop("OPENAI_API_KEY", None)
     try:
         import radar.llm as llm
@@ -184,23 +184,19 @@ def check_subscription_default():
         assert h is not None and h.why == "q"
     finally:
         sys.modules.pop("ai_sub_auth", None)
+        os.environ.pop("RADAR_LLM", None)
 
 
-def check_auth_store():
-    """Token persistence: status / set_channel / save / logout (temp dir, no network)."""
+def check_channel_store():
+    """Channel persistence (temp dir, no network)."""
     import pathlib
     import tempfile
     import radar.auth as a
     tmp = pathlib.Path(tempfile.mkdtemp())
-    a.APP_DIR, a.TOKENS = tmp, tmp / "tokens.json"
-    assert a.status()["twitch"] is False
-    a.set_channel("SomeChannel")
+    a.APP_DIR, a.STORE = tmp, tmp / "settings.json"
+    assert a.watch_channel() == ""
+    a.set_channel("#SomeChannel")
     assert a.watch_channel() == "somechannel"
-    a._save({"twitch": {"access_token": "x", "login": "bob"}, "watch_channel": "somechannel"})
-    s = a.status()
-    assert s["twitch"] and s["login"] == "bob" and s["channel"] == "somechannel"
-    a.logout()
-    assert a.status()["twitch"] is False
 
 
 if __name__ == "__main__":
@@ -213,5 +209,5 @@ if __name__ == "__main__":
     check_llm_registration()
     check_llm_client_parse()
     check_subscription_default()
-    check_auth_store()
+    check_channel_store()
     print("selfcheck OK")

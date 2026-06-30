@@ -167,13 +167,13 @@ def get_client() -> Optional[LLMClient]:
     the fallback. Override with RADAR_LLM = sub | openai | auto. None -> the LLM brains
     stay "needs setup" in the picker (rule brains still work with zero setup).
     """
-    pref = os.environ.get("RADAR_LLM", "sub").lower()
-    if pref == "openai":
-        order = (_openai_complete,)
+    pref = os.environ.get("RADAR_LLM", "openai").lower()   # default: API key, no login UI
+    if pref in ("sub", "subscription"):
+        order = (_aisub_complete, _openai_complete)
     elif pref == "auto":
         order = (_openai_complete, _aisub_complete)
-    else:                                     # "sub" (default) / "subscription"
-        order = (_aisub_complete, _openai_complete)
+    else:                                     # "openai" (default) — key only, no OAuth surprise
+        order = (_openai_complete,)
     for build in order:
         comp = build()
         if comp is not None:
