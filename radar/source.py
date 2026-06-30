@@ -7,6 +7,7 @@ TwitchSource — anonymous IRC read. No auth, no API key, no dependency: reading
 """
 from __future__ import annotations
 import asyncio
+import random
 from typing import AsyncIterator
 
 from .models import Message
@@ -64,7 +65,10 @@ class TwitchSource:
 
     async def _read(self) -> AsyncIterator[Message]:
         reader, writer = await asyncio.open_connection(self.HOST, self.PORT)
-        nick = "justinfan" + str(10000 + sum(map(ord, self.channel)) % 80000)
+        # random anon nick per connection — a deterministic per-channel nick collides with any
+        # other reader on the same channel (incl. a 2nd app instance) and Twitch then splits the
+        # chat stream, so each side sees only PART of chat. Random avoids the collision entirely.
+        nick = "justinfan" + str(random.randint(10000, 99999))
         writer.write(b"CAP REQ :twitch.tv/tags\r\n")
         writer.write(f"NICK {nick}\r\n".encode())
         writer.write(f"JOIN #{self.channel}\r\n".encode())
