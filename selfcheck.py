@@ -187,6 +187,19 @@ def check_subscription_default():
         os.environ.pop("RADAR_LLM", None)
 
 
+def check_channel_input():
+    """Channel input accepts bare name, #name, @name, a twitch URL, or a markdown link."""
+    from radar.auth import normalize_channel as n
+    assert n("moriarty_vt") == "moriarty_vt"
+    assert n("#Moriarty_VT") == "moriarty_vt"
+    assert n("@moriarty_vt") == "moriarty_vt"
+    assert n("https://www.twitch.tv/moriarty_vt") == "moriarty_vt"
+    assert n("https://twitch.tv/moriarty_vt/videos?x=1") == "moriarty_vt"
+    assert n("  twitch.tv/Moriarty_VT  ") == "moriarty_vt"
+    assert n("[moriarty_vt](https://www.twitch.tv/moriarty_vt)") == "moriarty_vt"
+    assert n("") == ""
+
+
 def check_channel_store():
     """Channel persistence (temp dir, no network)."""
     import pathlib
@@ -209,5 +222,6 @@ if __name__ == "__main__":
     check_llm_registration()
     check_llm_client_parse()
     check_subscription_default()
+    check_channel_input()
     check_channel_store()
     print("selfcheck OK")

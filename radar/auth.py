@@ -8,6 +8,7 @@ from __future__ import annotations
 import json
 import os
 import pathlib
+import re
 
 APP_DIR = pathlib.Path(os.environ.get("APPDATA") or pathlib.Path.home()) / "HighlightRadar"
 STORE = APP_DIR / "settings.json"
@@ -29,7 +30,21 @@ def watch_channel() -> str:
     return _load().get("channel", "")
 
 
+def normalize_channel(s: str) -> str:
+    """Accept a bare name, #name, @name, a twitch.tv URL, or a [md](url) link -> login name."""
+    s = (s or "").strip()
+    m = re.search(r"\(([^)]+)\)", s)                    # markdown [text](url) -> use the url
+    if m and m.group(1).strip():
+        s = m.group(1).strip()
+    m = re.search(r"twitch\.tv/([^/?#\s]+)", s, re.I)   # strip a twitch URL to its first path part
+    if m:
+        s = m.group(1)
+    s = s.lstrip("#@").strip()
+    m = re.match(r"[A-Za-z0-9_]+", s)                   # the channel token
+    return m.group(0).lower() if m else ""
+
+
 def set_channel(name: str) -> None:
     d = _load()
-    d["channel"] = name.lstrip("#").strip().lower()
+    d["channel"] = normalize_channel(name)
     _save(d)
