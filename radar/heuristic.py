@@ -25,14 +25,20 @@ FUNNY = {"KEKW", "LULW", "OMEGALUL", "LUL", "KEKL", "ICANT", "PepeLaugh", "LMAOO
 HYPE = {"PogChamp", "Pog", "POGGERS", "PogU", "Poggers", "LETSGO", "GIGACHAD", "EZ",
         "HYPERS", "monkaS", "monkaW", "PauseChamp"}
 
+# chat bots are never a gem — their "messages" are commands/payouts, not the audience reacting
+BOTS = {"nightbot", "streamelements", "streamlabs", "fossabot", "moobot", "soundalerts",
+        "sery_bot", "wizebot", "pretzelrocks", "commanderroot", "streamcaptainbot", "kofistreambot"}
+
 CLIP_RE = re.compile(r"\b(clip (that|it)|!clip)\b", re.I)
-CONFUSE_RE = re.compile(r"(wait what|what just happened|how did|how is|\?\?\?)", re.I)
+CONFUSE_RE = re.compile(r"(wait what|what just happened|how did|how is)", re.I)  # bare '???' is spam, not a gem
 HOTTAKE_RE = re.compile(r"\b(hot take|overrated|underrated|better than|fight me)\b", re.I)
 DIRECTION_RE = re.compile(r"\b(go (left|right|back)|pick the|take the|rush [ab]|do .+ first)\b", re.I)
 
 # which signal groups each profile surfaces
+# first-timer ("community" group) is author-not-content signal — noise on big channels, so it's
+# only in the Community profile (small just-chatting streams that want to welcome newcomers).
 PROFILES = {
-    "balanced":  {"crowd", "ask", "community"},
+    "balanced":  {"crowd", "ask"},
     "crowd":     {"crowd"},
     "community": {"ask", "community"},
 }
@@ -65,7 +71,6 @@ class HeuristicBrain:
         self.streamer = streamer.lstrip("#").lower()
         self.times: deque[float] = deque()
         self.ema = 0.0
-        self.seen: set[str] = set()
         self._fired: dict[str, float] = {}
 
     def _rate(self, now: float) -> int:
@@ -80,6 +85,8 @@ class HeuristicBrain:
         return True
 
     def score(self, msg: Message, window: "deque[Message]") -> Optional[Highlight]:
+        if msg.user and msg.user.lower() in BOTS:
+            return None
         now = msg.ts
         self.times.append(now)
         cur = self._rate(now)
@@ -90,10 +97,7 @@ class HeuristicBrain:
         norm = _norm(text)
         tokens = text.split()
 
-        tagged_first = msg.tags.get("first-msg") == "1"
-        inferred_first = bool(msg.user) and msg.user.lower() not in self.seen
-        if msg.user:
-            self.seen.add(msg.user.lower())
+        tagged_first = msg.tags.get("first-msg") == "1"   # Twitch's real first-ever-message flag
 
         best: Optional[tuple[float, str, str]] = None
 
@@ -125,16 +129,17 @@ class HeuristicBrain:
                 if dup >= self.DUP_BURST and self._cool("dup:" + norm[:24], now):
                     consider(2.4, "fun", f"copypasta x{dup}")
 
-            # crowd: clip requests, shouting, confusion (clip-the-moment cues)
+            # crowd: clip requests + confusion (clip-the-moment cues). Crowd ENERGY is the
+            # "chat popping off" spike above — surfacing every caps message too is just noise.
             if CLIP_RE.search(text):
                 consider(1.8, "hype", "clip request")
-            if len(tokens) >= 2 and len(text) > 4 and _caps_ratio(text) > 0.7:
-                consider(1.4, "hype", "shouting")
             if CONFUSE_RE.search(text):
                 consider(1.4, "q", "confusion — clip the last few seconds")
 
         if "ask" in g:
-            if norm.endswith("?") and len(norm) > 5:
+            # real words, not "?????"; and not a one-word all-caps reaction ("WHAT????")
+            if (norm.endswith("?") and sum(c.isalpha() for c in norm) >= 4
+                    and not (len(tokens) <= 1 and _caps_ratio(text) > 0.8)):
                 consider(1.6, "q", "question")
             if DIRECTION_RE.search(text):
                 consider(1.7, "q", "directing the run")
@@ -144,14 +149,19 @@ class HeuristicBrain:
                 consider(1.5, "q", "mentions you")
 
         if "community" in g:
-            # tagged first-msg is authoritative; inferred (no tag) needs substance
-            if tagged_first or (inferred_first and len(norm) >= 12 and len(tokens) >= 3):
-                consider(1.2, "nw", "first message")
+            # only Twitch's real first-msg flag — never guess from our short session (floods on connect).
+            # require a little substance so trivial first posts ("yo","RT") aren't surfaced.
+            if tagged_first and len(tokens) >= 3:
+                consider(1.6, "nw", "first-time chatter")
 
         if best is None or best[0] < self.FLOOR:
             return None
 
         s, cat, reason = best
+        # dedup: same message surfaced again within 20s is repeated chatter, not a new gem
+        if now - self._fired.get("t:" + norm[:40], -1e9) < 20.0:
+            return None
+        self._fired["t:" + norm[:40]] = now
         badges = msg.tags.get("badges", "")
         if any(b in badges for b in ("broadcaster", "moderator", "vip")):
             s *= 1.15

@@ -56,17 +56,21 @@ def check_heuristic():
     w = _dq(maxlen=50)
     clock = [1000.0]
 
-    def feed(user, text, dt=1.0):
-        m = Message(user, text, ts=clock[0]); clock[0] += dt
+    def feed(user, text, dt=1.0, tags=None):
+        m = Message(user, text, ts=clock[0], tags=tags or {}); clock[0] += dt
         w.append(m); return b.score(m, w)
 
     assert feed("u1", "what sens do you use?").why == "q"
     burst = [feed(f"e{i}", "KEKW") for i in range(6)]          # spaced -> emote burst, not velocity
     assert any(r and r.why == "fun" for r in burst), burst
-    assert feed("newbie_kev", "hi there everyone").why == "nw"
     assert feed("u2", "clip that").why == "hype"
-    assert feed("u3", "LETS GOOOO").why == "hype"
     assert feed("u4", "@captainclutch you have to try this").why == "q"
+    assert feed("u5", "WHAT????") is None                        # all-caps one-word reaction != question
+    # newcomers: ONLY Twitch's real first-msg tag, ONLY in the community profile, and only with substance
+    cm = HeuristicBrain(profile="community")
+    nw = Message("newbie_kev", "hi there everyone", ts=2000.0, tags={"first-msg": "1"})
+    assert cm.score(nw, _dq(maxlen=8)).why == "nw"
+    assert b.score(Message("x", "hi there everyone", ts=2001.0, tags={"first-msg": "1"}), _dq(maxlen=8)) is None  # balanced ignores
 
 
 def check_profiles():
