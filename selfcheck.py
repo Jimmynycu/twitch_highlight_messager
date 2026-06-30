@@ -136,6 +136,17 @@ def check_llm_registration():
             REG.pop(n, None)
 
 
+def check_llm_client_parse():
+    """The shared prompt/parse used by both the OpenAI and ai-sub-auth backends."""
+    from radar.llm import LLMLabelClient
+    assert LLMLabelClient(lambda system, user: "QUESTION").classify("x", "g", []) == "question"
+    assert LLMLabelClient(lambda system, user: "banana").classify("x", "g", []) == "none"
+    # a backend that throws must degrade to "none", never raise
+    def boom(system, user):
+        raise RuntimeError("model down")
+    assert LLMLabelClient(boom).classify("x", "g", []) == "none"
+
+
 if __name__ == "__main__":
     check_scorer()
     check_source()
@@ -144,4 +155,5 @@ if __name__ == "__main__":
     check_profiles()
     check_llm_brain()
     check_llm_registration()
+    check_llm_client_parse()
     print("selfcheck OK")

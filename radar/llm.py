@@ -82,8 +82,12 @@ class LLMBrain:
         return Highlight(msg, why=cat, score=1.5, reason=f"LLM · {label}")
 
 
-class OpenAIClient:
-    """Real client — the one untested seam (needs a key). Defensive by design."""
+class LLMLabelClient:
+    """Turns any text-completion backend into a one-label classifier.
+
+    The prompt + parse here is the tested part; the backend (`complete`) is the seam —
+    OpenAI today, an ai-sub-auth ChatGPT subscription when enabled. Defensive by design.
+    """
     _LABELS = "question, hype, funny, new, none"
 
     def __init__(self, complete):
@@ -94,7 +98,10 @@ class OpenAIClient:
                   f"Reply with exactly ONE label from: {self._LABELS}. "
                   f"Use 'none' if the message should not be surfaced.")
         user = "Recent chat:\n" + "\n".join(recent[-8:]) + f"\n\nMessage to classify:\n{message}"
-        out = (self._complete(system, user) or "none").lower()
+        try:
+            out = (self._complete(system, user) or "none").lower()
+        except Exception:
+            return "none"
         for lab in ("question", "hype", "funny", "new"):
             if lab in out:
                 return lab
@@ -122,13 +129,42 @@ def _openai_complete():
     return complete
 
 
+def _aisub_complete():
+    """Reuse a ChatGPT subscription via ai-sub-auth. Opt-in: RADAR_AI_SUBAUTH=1.
+
+    Untested seam — needs the user's one-time `ai.connect()` browser login (the token is
+    cached after). Import-guarded and fully defensive so it can never break startup or
+    the zero-setup path: any failure returns None and the LLM brains stay "needs key".
+    """
+    if os.environ.get("RADAR_AI_SUBAUTH", "").lower() not in ("1", "true", "yes", "on"):
+        return None
+    try:
+        from ai_sub_auth import AI
+    except Exception:
+        return None
+    try:
+        ai = AI()
+        ai.connect()                          # reuses the cached token after first login
+    except Exception:
+        return None
+
+    def complete(system: str, user: str) -> str:
+        try:
+            r = ai.chat_sync(system + "\n\n" + user)
+            return getattr(r, "content", None) or str(r) or "none"
+        except Exception:
+            return "none"
+
+    return complete
+
+
 def get_client() -> Optional[LLMClient]:
     """Return a usable LLM client, or None when nothing is configured.
 
-    Today: OPENAI_API_KEY. Later: an `ai-sub-auth` token (reuse a ChatGPT sub) wires
-    in right here behind the same LLMClient interface.
+    Order: OPENAI_API_KEY (OpenAI), then RADAR_AI_SUBAUTH=1 (reuse a ChatGPT sub via
+    ai-sub-auth). None -> the LLM brains stay "needs key" in the picker.
     """
-    comp = _openai_complete()
+    comp = _openai_complete() or _aisub_complete()
     if comp is not None:
-        return OpenAIClient(comp)
+        return LLMLabelClient(comp)
     return None
