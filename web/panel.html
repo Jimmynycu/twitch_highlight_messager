@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Highlight Radar</title>
+<style>
+  :root{
+    --bg:#13111A;--frame:#0E0C14;--surface:#1C1926;--surface-2:#242031;--hair:#2E2A3D;
+    --text:#ECE9F2;--text-2:#9C95AE;--text-3:#6B6580;--accent:#A970FF;--live:#5BD6A0;
+    --sans:"Segoe UI Variable Text","Segoe UI",system-ui,-apple-system,"Helvetica Neue",Arial,sans-serif;
+    --mono:ui-monospace,"Cascadia Code","Cascadia Mono","Consolas",Menlo,monospace;
+  }
+  *{box-sizing:border-box}html,body{height:100%}
+  body{margin:0;background:var(--frame);color:var(--text);font-family:var(--sans);-webkit-font-smoothing:antialiased;}
+  .app{max-width:600px;margin:0 auto;height:100vh;display:flex;flex-direction:column;background:var(--bg);border-inline:1px solid var(--hair);overflow:hidden;}
+  .bar{display:flex;align-items:center;gap:.9rem;padding:.85rem 1rem;border-bottom:1px solid var(--hair);background:linear-gradient(180deg,#1A1724,var(--bg));}
+  .brand{display:flex;align-items:center;gap:.6rem;}.brand .logo{color:var(--accent);flex-shrink:0;}
+  .brand .name{font-weight:650;font-size:1rem;letter-spacing:-.01em;display:block;}
+  .brand .sub{font-family:var(--mono);font-size:.62rem;letter-spacing:.16em;text-transform:uppercase;color:var(--text-3);display:block;margin-top:.12rem;}
+  .meta{margin-left:auto;display:flex;align-items:center;gap:1rem;}
+  .stat{display:flex;flex-direction:column;align-items:flex-end;line-height:1;}
+  .stat .k{font-family:var(--mono);font-size:.58rem;letter-spacing:.14em;text-transform:uppercase;color:var(--text-3);margin-bottom:.25rem;}
+  .stat .v{font-family:var(--mono);font-size:.95rem;font-weight:600;font-variant-numeric:tabular-nums;}
+  .chan{display:flex;align-items:center;gap:.4rem;font-size:.78rem;color:var(--text-2);background:var(--surface);border:1px solid var(--hair);padding:.32rem .6rem;border-radius:999px;}
+  .livedot{width:7px;height:7px;border-radius:50%;background:var(--text-3);}
+  .live .livedot{background:var(--live);box-shadow:0 0 0 0 rgba(91,214,160,.6);animation:pulse 2.2s infinite;}
+  .iconctl{background:var(--surface);border:1px solid var(--hair);color:var(--text-2);width:30px;height:30px;border-radius:8px;display:grid;place-items:center;cursor:pointer;}
+  .iconctl:hover{color:var(--text);border-color:var(--accent);}
+  .brainsel{background:var(--surface);border:1px solid var(--hair);color:var(--text-2);font-family:var(--mono);font-size:.68rem;border-radius:8px;padding:.32rem .4rem;max-width:150px;cursor:pointer;}
+  .brainsel:hover{color:var(--text);border-color:var(--accent);}
+  .brainsel:focus{outline:none;border-color:var(--accent);}
+  .filters{display:flex;align-items:center;gap:.4rem;flex-wrap:wrap;padding:.6rem 1rem;border-bottom:1px solid var(--hair);}
+  .flabel{font-family:var(--mono);font-size:.58rem;letter-spacing:.16em;text-transform:uppercase;color:var(--text-3);margin-right:.2rem;}
+  .fchip{display:inline-flex;align-items:center;gap:.4rem;font-family:var(--mono);font-size:.68rem;color:var(--text-2);background:transparent;border:1px solid var(--hair);padding:.3rem .55rem;border-radius:999px;cursor:pointer;}
+  .fchip .fdot{width:7px;height:7px;border-radius:50%;background:var(--cat);}
+  .fchip:hover{border-color:var(--cat);color:var(--text);}.fchip.off{opacity:.4;}.fchip.off .fdot{background:var(--text-3);}
+  .fchip.q{--cat:#7AA2FF}.fchip.hype{--cat:#FFB454}.fchip.fun{--cat:#FF7BC2}.fchip.nw{--cat:#5BD6A0}
+  .feed{flex:1;min-height:0;overflow-y:auto;padding:.7rem;display:flex;flex-direction:column;gap:.5rem;scrollbar-width:thin;scrollbar-color:var(--hair) transparent;}
+  .feed::-webkit-scrollbar{width:8px}.feed::-webkit-scrollbar-thumb{background:var(--hair);border-radius:8px}
+  .empty{margin:auto;color:var(--text-3);font-size:.85rem;text-align:center;}
+  .gem{position:relative;flex-shrink:0;background:var(--surface);border:1px solid var(--hair);border-radius:11px;padding:.75rem .9rem .8rem 1.05rem;overflow:hidden;}
+  .gem:hover{background:var(--surface-2);}
+  .gem .stripe{position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--cat);opacity:.5;}
+  .gem.fresh{animation:slidein .34s cubic-bezier(.2,.7,.3,1);box-shadow:inset 0 0 0 1px var(--cat),0 0 22px -8px var(--cat);}
+  .gem.fresh .stripe{opacity:1;}.gem.kept{box-shadow:inset 0 0 0 1px var(--cat);}.gem.kept .stripe{opacity:1;}
+  .gem.q{--cat:#7AA2FF;--cat-soft:rgba(122,162,255,.15)}.gem.hype{--cat:#FFB454;--cat-soft:rgba(255,180,84,.15)}
+  .gem.fun{--cat:#FF7BC2;--cat-soft:rgba(255,123,194,.15)}.gem.nw{--cat:#5BD6A0;--cat-soft:rgba(91,214,160,.15)}
+  .head{display:flex;align-items:center;gap:.5rem;margin-bottom:.4rem;}
+  .chip{display:inline-flex;align-items:center;gap:.35rem;font-family:var(--mono);font-size:.6rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--cat);background:var(--cat-soft);padding:.22rem .5rem;border-radius:999px;}
+  .chip .dot{width:5px;height:5px;border-radius:50%;background:var(--cat);}
+  .user{font-size:.82rem;font-weight:650;color:var(--uc,var(--text));}
+  .time{font-family:var(--mono);font-size:.66rem;color:var(--text-3);font-variant-numeric:tabular-nums;}
+  .acts{margin-left:auto;display:flex;gap:.15rem;opacity:0;transition:opacity .15s;}
+  .gem:hover .acts,.gem:focus-within .acts,.gem.kept .acts{opacity:1;}
+  .act{background:transparent;border:none;color:var(--text-3);width:26px;height:26px;border-radius:7px;display:grid;place-items:center;cursor:pointer;}
+  .act:hover{background:var(--surface);color:var(--text);}.act.keep.on{color:var(--cat);}
+  .msg{margin:0;font-size:1.06rem;line-height:1.45;color:var(--text);word-break:break-word;}
+  .foot{display:flex;align-items:center;gap:.45rem;padding:.55rem 1rem;border-top:1px solid var(--hair);font-family:var(--mono);font-size:.62rem;letter-spacing:.04em;color:var(--text-3);background:var(--frame);}
+  .foot .d{width:6px;height:6px;border-radius:50%;background:var(--text-3);}.foot.live .d{background:var(--live);}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(91,214,160,.55)}70%{box-shadow:0 0 0 7px rgba(91,214,160,0)}100%{box-shadow:0 0 0 0 rgba(91,214,160,0)}}
+  @keyframes slidein{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:none}}
+  @media (prefers-reduced-motion:reduce){.gem.fresh{animation:none}.live .livedot{animation:none}}
+  :focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
+</style>
+</head>
+<body>
+<div class="app" id="app">
+  <header class="bar">
+    <div class="brand">
+      <svg class="logo" viewBox="0 0 24 24" width="25" height="25" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><circle cx="6" cy="18" r="1.9" fill="currentColor" stroke="none"/><path d="M6 13.6 A4.4 4.4 0 0 1 10.4 18"/><path d="M6 9.1 A8.9 8.9 0 0 1 14.9 18"/><path d="M6 4.6 A13.4 13.4 0 0 1 19.4 18"/></svg>
+      <div><span class="name">Highlight Radar</span><span class="sub" id="brain">brain: …</span></div>
+    </div>
+    <div class="meta">
+      <div class="stat"><span class="k">gems</span><span class="v" id="count">0</span></div>
+      <select class="brainsel" id="brainsel" title="Switch brain — applies live"></select>
+      <div class="chan" id="status"><span class="livedot"></span><span id="statustxt">connecting…</span></div>
+      <button class="iconctl" id="pause" aria-label="Pause feed" title="Pause feed"><svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg></button>
+    </div>
+  </header>
+  <div class="filters">
+    <span class="flabel">show</span>
+    <button class="fchip q" data-cat="q" aria-pressed="true"><span class="fdot"></span>Questions</button>
+    <button class="fchip hype" data-cat="hype" aria-pressed="true"><span class="fdot"></span>Hype</button>
+    <button class="fchip fun" data-cat="fun" aria-pressed="true"><span class="fdot"></span>Funny</button>
+    <button class="fchip nw" data-cat="nw" aria-pressed="true"><span class="fdot"></span>New chatters</button>
+  </div>
+  <main class="feed" id="feed" aria-live="polite"><div class="empty" id="empty">Watching chat for gems…</div></main>
+  <footer class="foot" id="foot"><span class="d"></span><span id="foottxt">offline</span></footer>
+</div>
+<script>
+(function(){
+  var CAT={q:"Question",hype:"Hype",fun:"Funny",nw:"New chatter"};
+  var MAX=40,feed=document.getElementById("feed"),countEl=document.getElementById("count"),empty=document.getElementById("empty");
+  var count=0,active={q:1,hype:1,fun:1,nw:1},paused=false,buffer=[];
+
+  function rel(ts){var d=Date.now()/1000-ts;if(d<3)return"now";if(d<60)return(d|0)+"s";return((d/60)|0)+"m";}
+  function card(ev){
+    var cat=CAT[ev.cat]?ev.cat:"q";
+    var el=document.createElement("article");el.className="gem "+cat+" fresh";el.dataset.cat=cat;el.dataset.t=ev.ts;
+    if(!active[cat])el.hidden=true;
+    el.innerHTML='<span class="stripe"></span><div class="head"><span class="chip"><span class="dot"></span><span class="rlbl"></span></span><span class="user"></span><span class="time">'+rel(ev.ts)+'</span><span class="acts"><button class="act keep" aria-label="Keep" title="Keep"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M12 3l2.6 5.5 6 .8-4.4 4 1.1 6L12 16.6 6.1 19.3l1.1-6-4.4-4 6-.8z"/></svg></button><button class="act dismiss" aria-label="Dismiss" title="Dismiss"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M5 5l14 14M19 5L5 19"/></svg></button></span></div><p class="msg"></p>';
+    el.querySelector(".rlbl").textContent=ev.reason||CAT[cat];
+    var u=el.querySelector(".user");u.textContent=ev.user;u.style.setProperty("--uc",ev.color||"#ECE9F2");
+    el.querySelector(".msg").textContent=ev.text;
+    el.querySelector(".dismiss").onclick=function(){el.remove();};
+    el.querySelector(".keep").onclick=function(){el.classList.toggle("kept");this.classList.toggle("on",el.classList.contains("kept"));};
+    return el;
+  }
+  function render(ev){
+    if(empty){empty.remove();empty=null;}
+    var el=card(ev);feed.insertBefore(el,feed.firstChild);
+    setTimeout(function(){el.classList.remove("fresh");},1500);
+    var nodes=feed.querySelectorAll(".gem");
+    if(nodes.length>MAX)for(var i=nodes.length-1;i>=0;i--){if(!nodes[i].classList.contains("kept")){nodes[i].remove();break;}}
+    count++;countEl.textContent=count;
+  }
+  function onEvent(ev){ if(paused){buffer.push(ev);} else {render(ev);} }
+
+  // filters
+  document.querySelector(".filters").addEventListener("click",function(e){
+    var b=e.target.closest(".fchip");if(!b)return;var c=b.dataset.cat;active[c]=!active[c];
+    b.classList.toggle("off",!active[c]);b.setAttribute("aria-pressed",active[c]?"true":"false");
+    feed.querySelectorAll('.gem[data-cat="'+c+'"]').forEach(function(g){g.hidden=!active[c];});
+  });
+  // pause (buffers while paused, flushes on resume)
+  var pb=document.getElementById("pause");
+  pb.onclick=function(){
+    paused=!paused;
+    pb.innerHTML=paused?'<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M8 5l11 7-11 7z"/></svg>':'<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>';
+    pb.setAttribute("aria-label",paused?"Resume feed":"Pause feed");
+    if(!paused){while(buffer.length)render(buffer.shift());}
+  };
+  // keep relative times fresh
+  setInterval(function(){feed.querySelectorAll(".gem").forEach(function(g){g.querySelector(".time").textContent=rel(+g.dataset.t);});},5000);
+
+  // brains -> populate picker, switch live (POST /brain, no restart)
+  var sel=document.getElementById("brainsel"),brainLbl=document.getElementById("brain");
+  function loadBrains(){
+    fetch("/brains").then(function(r){return r.json();}).then(function(list){
+      sel.innerHTML="";
+      list.forEach(function(b){
+        var o=document.createElement("option");
+        o.value=b.name;o.textContent=(b.label||b.name)+(b.available?"":" — needs key");
+        o.disabled=!b.available;o.title=b.tagline||"";
+        if(b.active){o.selected=true;brainLbl.textContent="brain: "+(b.label||b.name);}
+        sel.appendChild(o);
+      });
+    }).catch(function(){});
+  }
+  sel.onchange=function(){
+    fetch("/brain",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({name:sel.value})})
+      .then(function(r){return r.json();}).then(function(res){
+        if(res&&res.ok){brainLbl.textContent="brain: "+sel.options[sel.selectedIndex].textContent;}
+      }).catch(function(){});
+  };
+  loadBrains();
+
+  // live stream
+  function setStatus(live,txt){
+    document.getElementById("status").classList.toggle("live",live);
+    document.getElementById("foot").classList.toggle("live",live);
+    document.getElementById("statustxt").textContent=txt;
+    document.getElementById("foottxt").textContent=live?"live via SSE · localhost":"reconnecting…";
+  }
+  var es=new EventSource("/events");
+  es.onopen=function(){setStatus(true,"live");};
+  es.onerror=function(){setStatus(false,"reconnecting…");};
+  es.onmessage=function(e){try{onEvent(JSON.parse(e.data));}catch(_){}};
+})();
+</script>
+</body>
+</html>

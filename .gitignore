@@ -19,3 +19,10 @@ Thumbs.db
 dist/
 build/
 *.log
+
+# tokens (never commit)
+.tio.tokens.json
+user_token.json
+
+# packaged download
+*.zip
