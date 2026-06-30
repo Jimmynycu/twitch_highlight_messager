@@ -73,7 +73,9 @@ def build_app(cfg: Config) -> web.Application:
         return web.FileResponse(WEB / ("panel.html" if channel() else "login.html"))
 
     async def health(_r):
-        return web.json_response({"ok": True, "brain": holder["scorer"].name, "channel": state["channel"]})
+        from .llm import is_subscription_connected
+        return web.json_response({"ok": True, "brain": holder["scorer"].name, "channel": state["channel"],
+                                  "openai": is_subscription_connected() or bool(os.environ.get("OPENAI_API_KEY"))})
 
     async def set_channel(request):
         ch = (await request.json()).get("channel", "").strip()
@@ -96,6 +98,20 @@ def build_app(cfg: Config) -> web.Application:
         holder["scorer"] = sc
         return web.json_response({"ok": True, "active": name})
 
+    async def settings_page(_r):
+        return web.FileResponse(WEB / "settings.html")
+
+    async def openai_login(_r):
+        loop = asyncio.get_running_loop()
+        res = await loop.run_in_executor(None, auth.openai_connect)   # blocking OAuth, off the loop
+        if res.get("status") == "ok":
+            from .llm import subscription_client
+            from .scorer import register_llm
+            c = subscription_client()
+            if c:
+                register_llm(c)                  # smart brains light up immediately
+        return web.json_response(res)
+
     app = web.Application()
     app.router.add_get("/", index)
     app.router.add_get("/events", sink.sse)
@@ -103,6 +119,8 @@ def build_app(cfg: Config) -> web.Application:
     app.router.add_get("/brains", brains)
     app.router.add_post("/brain", set_brain)
     app.router.add_post("/channel", set_channel)
+    app.router.add_get("/settings", settings_page)
+    app.router.add_post("/auth/openai", openai_login)
 
     async def _start(_a):
         start_pump()

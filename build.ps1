@@ -4,6 +4,7 @@ python -m pip install -q pyinstaller
 python -m PyInstaller --noconfirm --onefile --name radar `
   --add-data "web/panel.html;web" `
   --add-data "web/login.html;web" `
+  --add-data "web/settings.html;web" `
   --collect-all aiohttp `
   --collect-all webview `
   --collect-all ai_sub_auth `

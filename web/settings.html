@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Highlight Radar — Brain &amp; AI</title>
+<style>
+  :root{--bg:#13111A;--frame:#0E0C14;--surface:#1C1926;--surface-2:#242031;--hair:#2E2A3D;
+    --text:#ECE9F2;--text-2:#9C95AE;--text-3:#6B6580;--accent:#A970FF;--accent-soft:rgba(169,112,255,.15);--good:#5BD6A0;
+    --sans:"Segoe UI Variable Text","Segoe UI",system-ui,sans-serif;--mono:ui-monospace,"Cascadia Code","Consolas",monospace;}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--frame);color:var(--text);font-family:var(--sans);line-height:1.55;min-height:100vh}
+  .wrap{max-width:560px;margin:0 auto;padding:1.6rem 1.1rem 3rem}
+  header{display:flex;align-items:center;gap:.6rem;margin-bottom:.3rem}
+  header .logo{color:var(--accent)} .name{font-weight:650;font-size:1.05rem}
+  .back{margin-left:auto;font-size:.82rem;color:var(--text-2);text-decoration:none;border:1px solid var(--hair);padding:.35rem .65rem;border-radius:8px}
+  .back:hover{color:var(--text);border-color:var(--accent)}
+  .intro{color:var(--text-2);font-size:.92rem;margin:.5rem 0 1rem}
+  .loop{display:flex;align-items:center;gap:.4rem;flex-wrap:wrap;background:var(--surface);border:1px solid var(--hair);border-radius:12px;padding:.7rem .8rem;margin-bottom:1.6rem}
+  .ln{background:var(--surface-2);border:1px solid var(--hair);border-radius:8px;padding:.35rem .6rem;font-size:.78rem}
+  .ln b{display:block;font-family:var(--mono);font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);font-weight:700}
+  .arr{color:var(--text-3);font-family:var(--mono)}
+  h2{font-size:.74rem;font-family:var(--mono);letter-spacing:.16em;text-transform:uppercase;color:var(--text-3);margin:1.4rem 0 .7rem;display:flex;gap:.5rem;align-items:center}
+  .opt{color:var(--text-3);background:var(--surface-2);border:1px solid var(--hair);border-radius:999px;padding:.1rem .4rem;font-size:.85em;letter-spacing:.05em}
+  .brain{display:flex;align-items:center;gap:.7rem;background:var(--surface);border:1px solid var(--hair);border-radius:11px;padding:.7rem .85rem;margin-bottom:.5rem;cursor:pointer;transition:.12s}
+  .brain:hover{border-color:var(--accent)}
+  .brain.active{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+  .brain.locked{opacity:.55;cursor:not-allowed}
+  .brain .bn{font-weight:600;font-size:.95rem}
+  .brain .bt{font-size:.82rem;color:var(--text-2);margin-top:.1rem}
+  .brain .badge{margin-left:auto;font-family:var(--mono);font-size:.58rem;letter-spacing:.08em;text-transform:uppercase;padding:.22rem .5rem;border-radius:999px;white-space:nowrap}
+  .badge.active{color:#160d28;background:var(--accent)}
+  .badge.locked{color:var(--text-3);border:1px solid var(--hair)}
+  .desc{color:var(--text-2);font-size:.86rem;margin:0 0 .9rem}
+  .ai{display:flex;align-items:center;gap:.5rem;font-size:.9rem;margin-bottom:.8rem}
+  .dot{width:9px;height:9px;border-radius:50%;background:var(--text-3)} .ai.on .dot{background:var(--good)}
+  .btn{border:none;background:var(--accent);color:#160d28;font-family:var(--sans);font-weight:650;font-size:.92rem;padding:.6rem 1rem;border-radius:9px;cursor:pointer}
+  .btn:disabled{opacity:.5;cursor:not-allowed}
+  .out{font-size:.84rem;color:var(--text-2);margin-top:.7rem;min-height:1.1em}
+  .foot{color:var(--text-3);font-size:.78rem;margin-top:1rem}
+  .foot code{font-family:var(--mono);background:var(--surface-2);padding:.05em .35em;border-radius:5px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <svg class="logo" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><circle cx="6" cy="18" r="1.9" fill="currentColor" stroke="none"/><path d="M6 13.6 A4.4 4.4 0 0 1 10.4 18"/><path d="M6 9.1 A8.9 8.9 0 0 1 14.9 18"/><path d="M6 4.6 A13.4 13.4 0 0 1 19.4 18"/></svg>
+    <div class="name">Brain &amp; AI</div>
+    <a class="back" href="/">&larr; Panel</a>
+  </header>
+  <p class="intro">The radar scores every chat message in real time and surfaces only the keepers. A <b>brain</b> is the rule for what counts as worth reacting to — pick the one that fits your stream.</p>
+  <div class="loop">
+    <span class="ln"><b>Perceive</b>recent chat</span><span class="arr">&rarr;</span>
+    <span class="ln"><b>Decide</b>score vs the brain</span><span class="arr">&rarr;</span>
+    <span class="ln"><b>Act</b>surface highlights</span><span class="arr">&rarr;</span>
+    <span class="ln"><b>Adapt</b>smart brains learn</span>
+  </div>
+
+  <h2>Brains</h2>
+  <div id="brains"></div>
+
+  <h2>Smart brains — ChatGPT <span class="opt">optional</span></h2>
+  <p class="desc">The smart brains read with a model instead of fixed rules. Connect your ChatGPT subscription once to unlock them — it's a one-time browser login. The free brains above need nothing.</p>
+  <div class="ai" id="aistatus"><span class="dot"></span><span id="aitext">checking…</span></div>
+  <button class="btn" id="connect">Connect ChatGPT</button>
+  <div class="out" id="aiout"></div>
+  <p class="foot">One-time login, cached locally in <code>%APPDATA%\HighlightRadar</code>. Prefer a key? Set <code>OPENAI_API_KEY</code> instead.</p>
+</div>
+<script>
+(function(){
+  var J={"Content-Type":"application/json"};
+  var brainsEl=document.getElementById("brains"), aiStatus=document.getElementById("aistatus"),
+      aiText=document.getElementById("aitext"), connectBtn=document.getElementById("connect"), aiout=document.getElementById("aiout");
+
+  function renderBrains(list){
+    brainsEl.innerHTML="";
+    list.forEach(function(b){
+      var el=document.createElement("div");
+      var locked=!b.available;
+      el.className="brain"+(b.active?" active":"")+(locked?" locked":"");
+      el.innerHTML='<div><div class="bn"></div><div class="bt"></div></div>'+
+        '<span class="badge '+(b.active?"active":"locked")+'">'+(b.active?"Active":(locked?"needs ChatGPT":"Use"))+'</span>';
+      el.querySelector(".bn").textContent=b.label||b.name;
+      el.querySelector(".bt").textContent=b.tagline||"";
+      if(!locked && !b.active){
+        el.onclick=function(){
+          fetch("/brain",{method:"POST",headers:J,body:JSON.stringify({name:b.name})})
+            .then(function(r){return r.json();}).then(function(res){ if(res.ok) load(); });
+        };
+      }
+      brainsEl.appendChild(el);
+    });
+  }
+  function renderAI(connected){
+    aiStatus.classList.toggle("on",!!connected);
+    aiText.textContent=connected?"ChatGPT connected — smart brains unlocked":"Not connected — smart brains locked";
+    connectBtn.style.display=connected?"none":"";
+  }
+  function load(){
+    Promise.all([
+      fetch("/brains").then(function(r){return r.json();}),
+      fetch("/health").then(function(r){return r.json();})
+    ]).then(function(res){ renderBrains(res[0]); renderAI(res[1].openai); })
+      .catch(function(e){ brainsEl.textContent="Could not load: "+e; });
+  }
+  connectBtn.onclick=function(){
+    connectBtn.disabled=true; aiout.textContent="Opening ChatGPT login in your browser — sign in, then come back…";
+    fetch("/auth/openai",{method:"POST"}).then(function(r){return r.json();}).then(function(r){
+      if(r.status==="ok"){ aiout.textContent="Connected ✓"; load(); }
+      else { aiout.textContent="Could not connect: "+(r.error||"unavailable"); connectBtn.disabled=false; }
+    }).catch(function(e){ aiout.textContent="Error: "+e; connectBtn.disabled=false; });
+  };
+  load();
+})();
+</script>
+</body>
+</html>

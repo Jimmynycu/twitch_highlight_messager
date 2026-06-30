@@ -48,3 +48,17 @@ def set_channel(name: str) -> None:
     d = _load()
     d["channel"] = normalize_channel(name)
     _save(d)
+
+
+def openai_connect() -> dict:
+    """Optional: reuse a ChatGPT subscription via ai_sub_auth (opens its OAuth login).
+
+    Not required — the rule brains work with no AI. This only unlocks the smart brains.
+    The token is cached by ai_sub_auth, so it's a one-time login.
+    """
+    try:
+        from ai_sub_auth import AI
+        AI(provider="openai_codex").connect()
+    except Exception as e:
+        return {"status": "error", "error": f"{type(e).__name__}: {e}"[:200]}
+    return {"status": "ok"}

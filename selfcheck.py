@@ -113,8 +113,10 @@ def check_llm_brain():
     assert allb.score(Message("u", "KEKW KEKW that was a great moment"), w) is not None
     # preset goals are defined for the three LLM presets
     assert set(PRESET_GOALS) == {"answer_chat", "everything_smart", "safe_and_quiet"}
-    # without a key, get_client() is None and the LLM brains don't register
-    if get_client() is None:
+    # the LLM presets register only when an LLM is actually available:
+    # an API key (get_client) OR an already-connected ChatGPT subscription.
+    from radar.llm import is_subscription_connected
+    if get_client() is None and not is_subscription_connected():
         assert "answer_chat" not in SCORERS
 
 

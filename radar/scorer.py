@@ -61,7 +61,9 @@ SCORERS["community"] = HeuristicBrain(profile="community")   # questions + newco
 
 # LLM presets — register only when a model key/login is configured; otherwise the
 # panel shows them as "needs key". Provider-agnostic (OPENAI_API_KEY today).
-from .llm import LLMBrain, get_client, PRESET_GOALS  # noqa: E402
+from .llm import (  # noqa: E402
+    LLMBrain, get_client, PRESET_GOALS, subscription_client, is_subscription_connected,
+)
 
 
 def register_llm(client) -> list[str]:
@@ -77,4 +79,6 @@ def register_llm(client) -> list[str]:
 
 _llm_client = get_client()
 if _llm_client is not None:
-    register_llm(_llm_client)
+    register_llm(_llm_client)                       # OPENAI_API_KEY path
+elif is_subscription_connected():
+    register_llm(subscription_client())             # ChatGPT subscription already connected

@@ -179,3 +179,20 @@ def get_client() -> Optional[LLMClient]:
         if comp is not None:
             return LLMLabelClient(comp)
     return None
+
+
+def subscription_client():
+    """An LLM client backed by the ChatGPT subscription (after openai_connect)."""
+    comp = _aisub_complete()
+    return LLMLabelClient(comp) if comp else None
+
+
+def is_subscription_connected() -> bool:
+    """True if a ChatGPT (codex) OAuth token is already cached — no login triggered."""
+    try:
+        from ai_sub_auth.providers import PROVIDERS
+        from ai_sub_auth.token_store import TokenStore
+        store = TokenStore(filename=PROVIDERS["openai_codex"].token_filename)
+        return bool(store.load() or store.try_import_codex_cli())
+    except Exception:
+        return False
