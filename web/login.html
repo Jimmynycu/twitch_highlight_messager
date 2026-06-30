@@ -5,33 +5,52 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Highlight Radar</title>
 <style>
-  :root{--bg:#13111A;--frame:#0E0C14;--surface:#1C1926;--hair:#2E2A3D;--text:#ECE9F2;
-    --text-2:#9C95AE;--text-3:#6B6580;--accent:#A970FF;
-    --sans:"Segoe UI Variable Text","Segoe UI",system-ui,sans-serif;--mono:ui-monospace,"Cascadia Code","Consolas",monospace;}
+  :root{--frame:#0E0C14;--base:#13111A;--surface:#1C1926;--hair:#2E2A3D;--text:#ECE9F2;
+    --text-2:#9C95AE;--text-3:#6B6580;--accent:#A970FF;--accent-ink:#160D28;--q:#7AA2FF;--error:#FF7070;
+    --sans:"Segoe UI Variable Text","Segoe UI",system-ui,-apple-system,sans-serif;--mono:ui-monospace,"Cascadia Code","Consolas",monospace;}
   *{box-sizing:border-box}
-  body{margin:0;min-height:100vh;background:var(--frame);color:var(--text);font-family:var(--sans);display:flex;align-items:center;justify-content:center}
+  body{margin:0;min-height:100vh;background:var(--base);color:var(--text);font-family:var(--sans);letter-spacing:-.01em;display:flex;align-items:center;justify-content:center;-webkit-font-smoothing:antialiased}
   .box{width:100%;max-width:380px;padding:1.5rem;text-align:center}
   .logo{color:var(--accent)}
-  h1{font-size:1.4rem;font-weight:680;margin:.6rem 0 .2rem;letter-spacing:-.02em}
-  p{color:var(--text-2);font-size:.9rem;margin:0 0 1.3rem}
+  h1{font-size:22px;font-weight:680;letter-spacing:-.02em;margin:.6rem 0 .15rem}
+  .tag{color:var(--text-2);font-size:.88rem;margin:0 0 1.5rem}
+  .lbl{font-family:var(--mono);font-size:.6rem;letter-spacing:.14em;text-transform:uppercase;color:var(--text-3);text-align:left;margin:0 0 .35rem}
   .row{display:flex}
-  .at{display:flex;align-items:center;padding:0 .15rem 0 .7rem;background:var(--frame);border:1px solid var(--hair);border-right:none;border-radius:10px 0 0 10px;color:var(--text-3);font-family:var(--mono)}
+  .at{display:flex;align-items:center;padding:0 .15rem 0 .7rem;background:var(--frame);border:1px solid var(--hair);border-right:none;border-radius:11px 0 0 11px;color:var(--text-3);font-family:var(--mono)}
   input{flex:1;min-width:0;background:var(--frame);border:1px solid var(--hair);border-inline:none;color:var(--text);font-family:var(--mono);font-size:1rem;padding:.7rem .4rem}
   input:focus{outline:none}
   .row:focus-within .at,.row:focus-within input,.row:focus-within button{border-color:var(--accent)}
-  button{border:1px solid var(--hair);border-left:none;background:var(--accent);color:#160d28;font-family:var(--sans);font-weight:650;font-size:.95rem;padding:.7rem 1.1rem;border-radius:0 10px 10px 0;cursor:pointer}
-  .err{color:#FF7070;font-size:.82rem;margin-top:.7rem;min-height:1.1em}
-  .hint{color:var(--text-3);font-size:.78rem;margin-top:.5rem}
+  button{border:1px solid var(--hair);border-left:none;background:var(--accent);color:var(--accent-ink);font-family:var(--sans);font-weight:650;font-size:.92rem;padding:.7rem 1rem;border-radius:0 11px 11px 0;cursor:pointer;white-space:nowrap}
+  button:disabled{opacity:.55;cursor:not-allowed}
+  .err{color:var(--error);font-size:.82rem;margin-top:.7rem;min-height:1.1em;text-align:left}
+  .hint{color:var(--text-3);font-size:.78rem;margin-top:.4rem;text-align:left}
+  .extag{font-family:var(--mono);font-size:.58rem;letter-spacing:.14em;text-transform:uppercase;color:var(--text-3);text-align:left;margin:2rem 0 .5rem}
+  .exgem{position:relative;background:var(--surface);border:1px solid var(--hair);border-radius:11px;padding:12px 14px 13px 17px;text-align:left;overflow:hidden}
+  .exgem .st{position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--q)}
+  .exhead{display:flex;align-items:center;gap:.5rem;margin-bottom:5px}
+  .exchip{font-family:var(--mono);font-size:.59rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--q);display:inline-flex;align-items:center;gap:.35rem}
+  .exchip .d{width:6px;height:6px;border-radius:50%;background:var(--q)}
+  .exuser{font-size:.81rem;font-weight:650;color:#57C2FF} .extime{font-family:var(--mono);font-size:.66rem;color:var(--text-3);margin-left:auto}
+  .exmsg{margin:0;font-size:17px;font-weight:450;line-height:1.45;color:var(--text)}
+  :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 </style>
 </head>
 <body>
 <div class="box">
   <svg class="logo" viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="6" cy="18" r="1.9" fill="currentColor" stroke="none"/><path d="M6 13.6 A4.4 4.4 0 0 1 10.4 18"/><path d="M6 9.1 A8.9 8.9 0 0 1 14.9 18"/><path d="M6 4.6 A13.4 13.4 0 0 1 19.4 18"/></svg>
   <h1>Highlight Radar</h1>
-  <p>Which Twitch channel do you want to watch?</p>
-  <div class="row"><span class="at">#</span><input id="ch" placeholder="channel name" autocomplete="off" autofocus><button id="go">Watch</button></div>
+  <p class="tag">Catches the chat worth reacting to — live.</p>
+  <div class="lbl">Twitch channel</div>
+  <div class="row"><span class="at">#</span><input id="ch" placeholder="yourname" autocomplete="off" autofocus><button id="go">Watch chat</button></div>
   <div class="err" id="err"></div>
-  <p class="hint">Reads live chat instantly — no login, no account needed.</p>
+  <p class="hint">No login, no account — reads live chat instantly.</p>
+
+  <div class="extag">Example</div>
+  <article class="exgem">
+    <span class="st"></span>
+    <div class="exhead"><span class="exchip"><span class="d"></span>Question</span><span class="exuser">vodzilla</span><span class="extime">now</span></div>
+    <p class="exmsg">wait how do you have 200 ping and still hit those shots??</p>
+  </article>
 </div>
 <script>
   var ch=document.getElementById("ch"), go=document.getElementById("go"), err=document.getElementById("err");

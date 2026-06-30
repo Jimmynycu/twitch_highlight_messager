@@ -5,31 +5,31 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Highlight Radar — Brain &amp; AI</title>
 <style>
-  :root{--bg:#13111A;--frame:#0E0C14;--surface:#1C1926;--surface-2:#242031;--hair:#2E2A3D;
-    --text:#ECE9F2;--text-2:#9C95AE;--text-3:#6B6580;--accent:#A970FF;--good:#5BD6A0;
-    --sans:"Segoe UI Variable Text","Segoe UI",system-ui,sans-serif;--mono:ui-monospace,"Cascadia Code","Consolas",monospace;}
+  :root{--frame:#0E0C14;--base:#13111A;--surface:#1C1926;--surface-2:#242031;--hair:#2E2A3D;
+    --text:#ECE9F2;--text-2:#9C95AE;--text-3:#6B6580;--accent:#A970FF;--accent-ink:#160D28;--good:#5BD6A0;
+    --sans:"Segoe UI Variable Text","Segoe UI",system-ui,-apple-system,sans-serif;--mono:ui-monospace,"Cascadia Code","Consolas",monospace;}
   *{box-sizing:border-box}
-  body{margin:0;background:var(--frame);color:var(--text);font-family:var(--sans);line-height:1.5;min-height:100vh}
-  .wrap{max-width:560px;margin:0 auto;padding:1.6rem 1.1rem 3rem}
-  header{display:flex;align-items:center;gap:.6rem;margin-bottom:1.4rem}
-  header .logo{color:var(--accent)} .name{font-weight:650;font-size:1.05rem}
-  .back{margin-left:auto;font-size:.82rem;color:var(--text-2);text-decoration:none;border:1px solid var(--hair);padding:.35rem .65rem;border-radius:8px}
+  body{margin:0;background:var(--base);color:var(--text);font-family:var(--sans);letter-spacing:-.01em;line-height:1.5;min-height:100vh;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:560px;margin:0 auto;padding:26px 18px 48px}
+  header{display:flex;align-items:center;gap:.6rem;margin-bottom:1.5rem}
+  header .logo{color:var(--accent)} .name{font-weight:680;font-size:1.05rem;letter-spacing:-.02em}
+  .back{margin-left:auto;font-size:.82rem;color:var(--text-2);text-decoration:none;border:1px solid var(--hair);padding:.35rem .65rem;border-radius:9px;transition:.12s}
   .back:hover{color:var(--text);border-color:var(--accent)}
-  h2{font-size:.74rem;font-family:var(--mono);letter-spacing:.16em;text-transform:uppercase;color:var(--text-3);margin:1.6rem 0 .7rem}
-  .goal{width:100%;min-height:96px;background:var(--surface);border:1px solid var(--hair);border-radius:11px;color:var(--text);font-family:var(--sans);font-size:.95rem;line-height:1.5;padding:.75rem .9rem;resize:vertical}
-  .goal:focus{outline:none;border-color:var(--accent)}
+  h2{font-size:11.5px;font-family:var(--mono);letter-spacing:.16em;text-transform:uppercase;color:var(--text-3);margin:1.7rem 0 .5rem}
+  .help{color:var(--text-2);font-size:.85rem;margin:0 0 .7rem}
+  .goal{width:100%;min-height:96px;background:var(--surface);border:1px solid var(--hair);border-radius:11px;color:var(--text);font-family:var(--sans);font-size:.95rem;line-height:1.5;padding:.75rem .9rem;resize:vertical;transition:opacity .15s}
+  .goal:focus{outline:none;border-color:var(--accent)} .goal:disabled{opacity:.45;cursor:not-allowed}
   .actions{display:flex;align-items:center;gap:.7rem;margin-top:.7rem;flex-wrap:wrap}
-  .btn{border:none;background:var(--accent);color:#160d28;font-family:var(--sans);font-weight:650;font-size:.92rem;padding:.6rem 1rem;border-radius:9px;cursor:pointer}
-  .btn.ghost{background:transparent;border:1px solid var(--hair);color:var(--text-2)}
-  .btn.ghost:hover{border-color:var(--accent);color:var(--text)} .btn:disabled{opacity:.5;cursor:not-allowed}
+  .btn{border:none;background:var(--accent);color:var(--accent-ink);font-family:var(--sans);font-weight:650;font-size:.92rem;padding:.6rem 1.05rem;border-radius:9px;cursor:pointer;transition:transform .12s,filter .12s}
+  .btn:hover{filter:brightness(1.07)} .btn:active{transform:scale(.97)} .btn:disabled{opacity:.5;cursor:not-allowed}
   .out{font-size:.84rem;color:var(--text-2)}
   .brain{display:flex;align-items:center;gap:.7rem;background:var(--surface);border:1px solid var(--hair);border-radius:11px;padding:.7rem .85rem;margin-bottom:.5rem;cursor:pointer;transition:.12s}
   .brain:hover{border-color:var(--accent)}
   .brain.active{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
-  .brain.locked{opacity:.55;cursor:not-allowed}
-  .brain .bn{font-weight:600;font-size:.95rem} .brain .bt{font-size:.82rem;color:var(--text-2);margin-top:.1rem}
-  .brain .badge{margin-left:auto;font-family:var(--mono);font-size:.58rem;letter-spacing:.08em;text-transform:uppercase;padding:.22rem .5rem;border-radius:999px;white-space:nowrap}
-  .badge.active{color:#160d28;background:var(--accent)} .badge.locked{color:var(--text-3);border:1px solid var(--hair)}
+  .brain .bn{font-weight:650;font-size:.95rem} .brain .bt{font-size:.82rem;color:var(--text-2);margin-top:.1rem}
+  .brain .badge{margin-left:auto;font-family:var(--mono);font-size:.58rem;letter-spacing:.08em;text-transform:uppercase;padding:.22rem .55rem;border-radius:999px;white-space:nowrap}
+  .badge.active{color:var(--accent-ink);background:var(--accent)} .badge.use{color:var(--text-3);border:1px solid var(--hair)}
+  :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 </style>
 </head>
 <body>
@@ -41,10 +41,11 @@
   </header>
 
   <h2>Your gems</h2>
-  <textarea id="goal" class="goal" placeholder="Highlight: funny copypasta &amp; inside jokes, big-play hype, genuine questions aimed at me, first-timers — skip generic 'hi' and bot spam"></textarea>
+  <p class="help" id="gemhelp">Describe the moments you care about — plain English.</p>
+  <textarea id="goal" class="goal" placeholder="funny copypasta &amp; inside jokes, big-play hype, genuine questions aimed at me, first-timers — skip generic 'hi' and bot spam"></textarea>
   <div class="actions">
     <button class="btn" id="savegems">Save &amp; use my gems</button>
-    <button class="btn ghost" id="connect" style="display:none">Connect ChatGPT to use gems</button>
+    <button class="btn" id="connect" style="display:none">Connect ChatGPT</button>
     <span class="out" id="gemout"></span>
   </div>
 
@@ -55,31 +56,38 @@
 (function(){
   var J={"Content-Type":"application/json"};
   var brainsEl=document.getElementById("brains"), connectBtn=document.getElementById("connect"),
-      goal=document.getElementById("goal"), gemout=document.getElementById("gemout");
-  var connected=false;
+      saveBtn=document.getElementById("savegems"), goal=document.getElementById("goal"),
+      gemout=document.getElementById("gemout"), gemhelp=document.getElementById("gemhelp");
 
   function renderBrains(list){
     brainsEl.innerHTML="";
     list.forEach(function(b){
-      var locked=!b.available;
       var el=document.createElement("div");
-      el.className="brain"+(b.active?" active":"")+(locked?" locked":"");
-      el.innerHTML='<div><div class="bn"></div><div class="bt"></div></div>'+
-        '<span class="badge '+(b.active?"active":"locked")+'">'+(b.active?"Active":(locked?"needs ChatGPT":"Use"))+'</span>';
+      el.className="brain"+(b.active?" active":"");
+      el.innerHTML='<div><div class="bn"></div><div class="bt"></div></div><span class="badge '+(b.active?"active":"use")+'">'+(b.active?"Active":"Use")+'</span>';
       el.querySelector(".bn").textContent=b.label||b.name;
       el.querySelector(".bt").textContent=b.tagline||"";
-      if(!locked && !b.active) el.onclick=function(){
+      if(!b.active) el.onclick=function(){
         fetch("/brain",{method:"POST",headers:J,body:JSON.stringify({name:b.name})}).then(function(r){return r.json();}).then(function(res){ if(res.ok) load(); });
       };
       brainsEl.appendChild(el);
     });
   }
+  // single accent CTA + dependency order: not connected -> Connect (gems locked); connected -> Save
+  function renderAI(connected){
+    connectBtn.style.display = connected ? "none" : "";
+    saveBtn.style.display = connected ? "" : "none";
+    goal.disabled = !connected;
+    gemhelp.textContent = connected
+      ? "Describe the moments you care about — plain English."
+      : "Connect ChatGPT first, then describe the moments you care about.";
+  }
   function load(){
     fetch("/brains").then(function(r){return r.json();}).then(renderBrains).catch(function(e){brainsEl.textContent="Could not load: "+e;});
-    fetch("/health").then(function(r){return r.json();}).then(function(h){ connected=!!h.openai; connectBtn.style.display=connected?"none":""; }).catch(function(){});
+    fetch("/health").then(function(r){return r.json();}).then(function(h){ renderAI(!!h.openai); }).catch(function(){});
     fetch("/gems").then(function(r){return r.json();}).then(function(g){ if(g.goal && !goal.value) goal.value=g.goal; }).catch(function(){});
   }
-  document.getElementById("savegems").onclick=function(){
+  saveBtn.onclick=function(){
     var g=goal.value.trim(); gemout.textContent="Saving…";
     fetch("/gems",{method:"POST",headers:J,body:JSON.stringify({goal:g})}).then(function(r){return r.json();}).then(function(r){
       if(r.active==="custom"){ gemout.textContent="On — highlighting your gems ✓"; load(); }
@@ -90,7 +98,7 @@
   connectBtn.onclick=function(){
     connectBtn.disabled=true; gemout.textContent="Opening ChatGPT login…";
     fetch("/auth/openai",{method:"POST"}).then(function(r){return r.json();}).then(function(r){
-      if(r.status==="ok"){ gemout.textContent="Connected ✓ — save your gems above"; load(); goal.focus(); }
+      if(r.status==="ok"){ gemout.textContent="Connected ✓ — now describe your gems"; load(); goal.focus(); }
       else { gemout.textContent="Could not connect: "+(r.error||"unavailable"); connectBtn.disabled=false; }
     }).catch(function(e){ gemout.textContent="Error: "+e; connectBtn.disabled=false; });
   };
