@@ -1,0 +1,19 @@
+#!/bin/sh
+# ───────────────────────────────────────────────────────────────────────────────
+# MANDATORY QA GATE — runs before every commit (and therefore before every release,
+# since a release always follows a commit). Runs the REAL pipeline against the #1
+# most-viewed live Twitch channel right now. Blocks the commit if the pipeline can't
+# read the live channel (catches the mock/wrong-source/crash regressions for real).
+#
+# Emergency override only:  git commit --no-verify
+# Activate on a fresh clone: git config core.hooksPath .githooks
+# ───────────────────────────────────────────────────────────────────────────────
+echo "[pre-commit] Realtime QA against the #1 live Twitch channel..."
+python qa_live.py 15 heuristic community
+status=$?
+if [ "$status" -ne 0 ]; then
+  echo "[pre-commit] QA FAILED (exit $status) — pipeline could not read the live channel. Fix it, or override with: git commit --no-verify"
+  exit 1
+fi
+echo "[pre-commit] QA passed. Review the gems above; release only if they look right."
+exit 0

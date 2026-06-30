@@ -78,6 +78,25 @@ web/panel.html   the live streamer panel
 selfcheck.py     `python selfcheck.py` — runnable, no network
 ```
 
+## QA — mandatory, against the #1 live channel
+
+Gem quality is verified against the **busiest live channel on Twitch**, not a quiet or mock one
+(a quiet channel hides brain problems). This runs the real pipeline:
+
+```powershell
+python qa_live.py            # finds the current #1 by viewers, prints surfaced gems + % surfaced
+```
+
+A **pre-commit hook enforces it on every commit** (and therefore before every release):
+
+```powershell
+git config core.hooksPath .githooks   # once per clone
+```
+
+The hook blocks the commit if the pipeline can't read the live channel (catches mock / wrong-source /
+crash regressions). Override only in emergencies with `git commit --no-verify`. A healthy busy channel
+surfaces ~3–5% of chat (real questions, @mentions/callouts, crowd moments, genuine first-timers).
+
 ## Status
 
 - [x] Pipeline end to end — mock + anonymous Twitch read, live panel

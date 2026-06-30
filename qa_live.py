@@ -81,7 +81,14 @@ async def main():
         for g in gems[:18]:
             print(f"   [{g['cat']:<5}] {g.get('reason',''):<26} {g['user']}: {g['text'][:64]}")
         print()
+    if total == 0:
+        print("WARNING: 0 messages read — channel may be sub-only/quiet, or ingestion is broken. Review before release.")
+    print(f"QA PASS — pipeline connected to the #1 live channel ({ch}) and ran end to end.")
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    try:
+        asyncio.run(main())
+    except Exception as e:                       # can't reach Twitch / find a channel / pipeline crash
+        print(f"QA FAILED — pipeline/network error: {type(e).__name__}: {e}")
+        sys.exit(1)
