@@ -149,11 +149,11 @@ def _aisub_complete():
         try:
             if state["ai"] is None:
                 from ai_sub_auth import AI
-                ai = AI()
-                ai.connect()                  # one-time login on first use; cached after
+                ai = AI(provider="openai_codex")          # ChatGPT subscription
+                ai.connect()                              # reuses cached token; logs in on first use
                 state["ai"] = ai
-            r = state["ai"].chat_sync(system + "\n\n" + user)
-            return getattr(r, "content", None) or str(r) or "none"
+            r = state["ai"].chat_sync(user, system=system, max_tokens=5)
+            return getattr(r, "content", None) or "none"
         except Exception:
             return "none"
 

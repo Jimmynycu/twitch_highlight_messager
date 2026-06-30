@@ -1,7 +1,5 @@
 aiohttp>=3.9
 pywebview>=5.0          # native desktop window (no browser)
-# optional — unlocks the LLM brains (answer_chat / everything_smart / safe_and_quiet):
-# openai>=1.0
-# ...or reuse a ChatGPT subscription instead of a key (then set RADAR_AI_SUBAUTH=1).
-# NOT on PyPI — install from source, then verify its API matches radar/llm.py:
-# pip install git+https://github.com/AlexAnys/ai-sub-auth
+httpx>=0.24            # used by the vendored ai_sub_auth (ChatGPT-subscription brains)
+# openai>=1.0          # optional: use an OpenAI API key instead of the subscription
+# ai_sub_auth is vendored in-repo (its own PyPI packaging is broken) — see ai_sub_auth/LICENSE

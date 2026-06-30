@@ -118,7 +118,7 @@ def openai_connect() -> dict:
     """Reuse a ChatGPT subscription via ai-sub-auth (opens its login). UNTESTED."""
     try:
         from ai_sub_auth import AI
-        AI().connect()
+        AI(provider="openai_codex").connect()          # ChatGPT subscription (OAuth)
     except Exception as e:
         return {"status": "error", "error": f"{type(e).__name__}: {e}"[:200]}
     d = _load()

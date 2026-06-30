@@ -158,12 +158,15 @@ def check_subscription_default():
     connects = []
     fake = types.ModuleType("ai_sub_auth")
 
-    class AI:
-        def connect(self):
+    class AI:                                        # matches the real ai_sub_auth.AI signature
+        def __init__(self, **kw):
+            pass
+
+        def connect(self, **kw):
             connects.append(1)                       # lazy: only on first classify
 
-        def chat_sync(self, prompt):
-            return types.SimpleNamespace(content="question" if "?" in prompt else "none")
+        def chat_sync(self, message="", *, system="", **kw):
+            return types.SimpleNamespace(content="question" if "?" in (message + system) else "none")
 
     fake.AI = AI
     sys.modules["ai_sub_auth"] = fake
