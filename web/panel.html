@@ -197,10 +197,8 @@
   };
   loadBrains();
 
-  document.getElementById("logout").onclick=function(){
-    var ch=prompt("Watch which channel?"); if(!ch) return;
-    fetch("/channel",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({channel:ch})}).then(function(r){return r.json();}).then(function(r){ if(r.ok) location.reload(); else alert(r.error||"Invalid channel."); }).catch(function(){});
-  };
+  // prompt()/alert() are disabled in the native webview (WebView2) — use the real picker instead.
+  document.getElementById("logout").onclick=function(){ location.href="/change"; };
 
   fetch("/health").then(function(r){return r.json();}).then(function(h){
     if(h.channel){var et=document.getElementById("emptytxt"); if(et) et.textContent="LISTENING TO #"+String(h.channel).toUpperCase()+"…";}

@@ -132,6 +132,9 @@ def build_app(cfg: Config) -> web.Application:
     async def settings_page(_r):
         return web.FileResponse(WEB / "settings.html")
 
+    async def change_page(_r):                                   # "Change channel" -> the real picker
+        return web.FileResponse(WEB / "login.html")
+
     async def openai_login(_r):
         loop = asyncio.get_running_loop()
         res = await loop.run_in_executor(None, auth.openai_connect)   # blocking OAuth, off the loop
@@ -151,6 +154,7 @@ def build_app(cfg: Config) -> web.Application:
     app.router.add_post("/brain", set_brain)
     app.router.add_post("/channel", set_channel)
     app.router.add_get("/settings", settings_page)
+    app.router.add_get("/change", change_page)
     app.router.add_post("/auth/openai", openai_login)
     app.router.add_get("/gems", get_gems)
     app.router.add_post("/gems", set_gems)
