@@ -5,30 +5,33 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Highlight Radar — Brain &amp; AI</title>
 <style>
-  :root{--frame:#0E0C14;--base:#13111A;--surface:#1C1926;--surface-2:#242031;--hair:#2E2A3D;
-    --text:#ECE9F2;--text-2:#9C95AE;--text-3:#6B6580;--accent:#A970FF;--accent-ink:#160D28;--good:#5BD6A0;
-    --sans:"Segoe UI Variable Text","Segoe UI",system-ui,-apple-system,sans-serif;--mono:ui-monospace,"Cascadia Code","Consolas",monospace;}
+  :root{--grain:1;--frame:#07080A;--surface:#0C0D10;--sc:#121317;--sc-hi:#181A1F;--outline:#202329;--outline-strong:#2C3037;
+    --text:#ECEDEF;--text-2:#9BA0AA;--text-3:#666C76;--accent:#3FE0BE;--accent-hover:#5AE9CB;--accent-dim:#2BB89B;
+    --on-accent:#04140F;--accent-soft:rgba(63,224,190,.13);--error:#FF6B6B;
+    --sans:"Segoe UI Variable Display","Segoe UI",system-ui,-apple-system,"SF Pro Display",Arial,sans-serif;--mono:ui-monospace,"Cascadia Code","SF Mono","Consolas",Menlo,monospace;}
   *{box-sizing:border-box}
-  body{margin:0;background:var(--base);color:var(--text);font-family:var(--sans);letter-spacing:-.01em;line-height:1.5;min-height:100vh;-webkit-font-smoothing:antialiased}
-  .wrap{max-width:560px;margin:0 auto;padding:26px 18px 48px}
-  header{display:flex;align-items:center;gap:.6rem;margin-bottom:1.5rem}
-  header .logo{color:var(--accent)} .name{font-weight:680;font-size:1.05rem;letter-spacing:-.02em}
-  .back{margin-left:auto;font-size:.82rem;color:var(--text-2);text-decoration:none;border:1px solid var(--hair);padding:.35rem .65rem;border-radius:9px;transition:.12s}
+  body{margin:0;background:var(--surface);color:var(--text);font-family:var(--sans);letter-spacing:-.01em;line-height:1.5;min-height:100vh;-webkit-font-smoothing:antialiased;position:relative}
+  body::before{content:"";position:fixed;inset:0;pointer-events:none;opacity:calc(.04*var(--grain));
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
+  .wrap{position:relative;z-index:1;max-width:560px;margin:0 auto;padding:26px 18px 48px}
+  header{display:flex;align-items:center;gap:.6rem;margin-bottom:1.6rem}
+  header .logo{color:var(--accent)} .name{font-weight:600;font-size:20px;letter-spacing:-.025em}
+  .back{margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--text-2);text-decoration:none;border:1px solid var(--outline);padding:.4rem .7rem;border-radius:999px;transition:.12s}
   .back:hover{color:var(--text);border-color:var(--accent)}
-  h2{font-size:11.5px;font-family:var(--mono);letter-spacing:.16em;text-transform:uppercase;color:var(--text-3);margin:1.7rem 0 .5rem}
-  .help{color:var(--text-2);font-size:.85rem;margin:0 0 .7rem}
-  .goal{width:100%;min-height:96px;background:var(--surface);border:1px solid var(--hair);border-radius:11px;color:var(--text);font-family:var(--sans);font-size:.95rem;line-height:1.5;padding:.75rem .9rem;resize:vertical;transition:opacity .15s}
-  .goal:focus{outline:none;border-color:var(--accent)} .goal:disabled{opacity:.45;cursor:not-allowed}
+  h2{font-family:var(--mono);font-size:10px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--text-3);margin:1.8rem 0 .5rem}
+  .help{color:var(--text-2);font-size:14px;margin:0 0 .7rem}
+  .goal{width:100%;min-height:96px;background:var(--frame);border:1px solid var(--outline);border-radius:7px;color:var(--text);font-family:var(--sans);font-size:14px;line-height:1.5;padding:.75rem .9rem;resize:vertical;transition:opacity .15s,border-color .12s,box-shadow .12s}
+  .goal:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)} .goal:disabled{opacity:.45;cursor:not-allowed}
   .actions{display:flex;align-items:center;gap:.7rem;margin-top:.7rem;flex-wrap:wrap}
-  .btn{border:none;background:var(--accent);color:var(--accent-ink);font-family:var(--sans);font-weight:650;font-size:.92rem;padding:.6rem 1.05rem;border-radius:9px;cursor:pointer;transition:transform .12s,filter .12s}
-  .btn:hover{filter:brightness(1.07)} .btn:active{transform:scale(.97)} .btn:disabled{opacity:.5;cursor:not-allowed}
-  .out{font-size:.84rem;color:var(--text-2)}
-  .brain{display:flex;align-items:center;gap:.7rem;background:var(--surface);border:1px solid var(--hair);border-radius:11px;padding:.7rem .85rem;margin-bottom:.5rem;cursor:pointer;transition:.12s}
-  .brain:hover{border-color:var(--accent)}
-  .brain.active{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
-  .brain .bn{font-weight:650;font-size:.95rem} .brain .bt{font-size:.82rem;color:var(--text-2);margin-top:.1rem}
-  .brain .badge{margin-left:auto;font-family:var(--mono);font-size:.58rem;letter-spacing:.08em;text-transform:uppercase;padding:.22rem .55rem;border-radius:999px;white-space:nowrap}
-  .badge.active{color:var(--accent-ink);background:var(--accent)} .badge.use{color:var(--text-3);border:1px solid var(--hair)}
+  .btn{border:none;background:var(--accent);color:var(--on-accent);font-family:var(--sans);font-weight:600;font-size:14px;letter-spacing:-.01em;padding:.6rem 1.2rem;border-radius:999px;cursor:pointer;transition:background .12s,transform .12s}
+  .btn:hover{background:var(--accent-hover)} .btn:active{background:var(--accent-dim);transform:scale(.97)} .btn:disabled{opacity:.5;cursor:not-allowed}
+  .out{font-family:var(--mono);font-size:11px;color:var(--text-2)}
+  .brain{display:flex;align-items:center;gap:.7rem;background:var(--sc);border:1px solid var(--outline);border-radius:12px;padding:.8rem .9rem;margin-bottom:.5rem;cursor:pointer;transition:.12s}
+  .brain:hover{border-color:var(--outline-strong);background:var(--sc-hi)}
+  .brain.active{border-color:var(--accent);background:var(--accent-soft)}
+  .brain .bn{font-weight:600;font-size:14px;letter-spacing:-.01em} .brain .bt{font-size:13px;color:var(--text-2);margin-top:.12rem}
+  .brain .badge{margin-left:auto;font-family:var(--mono);font-size:10px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;padding:.24rem .55rem;border-radius:999px;white-space:nowrap}
+  .badge.active{color:var(--on-accent);background:var(--accent)} .badge.use{color:var(--text-3);border:1px solid var(--outline)}
   :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 </style>
 </head>
@@ -73,7 +76,6 @@
       brainsEl.appendChild(el);
     });
   }
-  // single accent CTA + dependency order: not connected -> Connect (gems locked); connected -> Save
   function renderAI(connected){
     connectBtn.style.display = connected ? "none" : "";
     saveBtn.style.display = connected ? "" : "none";
