@@ -89,23 +89,23 @@ def build_app(cfg: Config) -> web.Application:
     async def auth_status(_r):
         return web.json_response(auth.status())
 
-    async def twitch_start(request):
-        cid = (await request.json()).get("client_id", "").strip()
-        if not cid:
-            return web.json_response({"status": "error", "error": "client_id required"}, status=400)
-        try:
-            return web.json_response({"status": "ok", **auth.twitch_start(cid)})
-        except Exception as e:
-            return web.json_response({"status": "error", "error": str(e)[:200]}, status=502)
-
-    async def twitch_poll(request):
-        res = auth.twitch_poll((await request.json()).get("device_code", ""))
+    async def twitch_login_ep(request):
+        b = await request.json()
+        cid, sec = b.get("client_id", "").strip(), b.get("client_secret", "").strip()
+        if not (cid and sec):
+            return web.json_response({"status": "error", "error": "client_id and client_secret required"}, status=400)
+        loop = asyncio.get_running_loop()
+        res = await loop.run_in_executor(None, auth.twitch_login, cid, sec)   # blocking -> off the loop
         if res.get("status") == "ok":
             start_pump()
         return web.json_response(res)
 
     async def openai_login(_r):
-        return web.json_response(auth.openai_connect())
+        loop = asyncio.get_running_loop()
+        # off the event loop: ai_sub_auth calls asyncio.run() internally, which
+        # crashes if run inside the server's running loop (the bug you hit).
+        res = await loop.run_in_executor(None, auth.openai_connect)
+        return web.json_response(res)
 
     async def do_logout(_r):
         auth.logout()
@@ -143,8 +143,7 @@ def build_app(cfg: Config) -> web.Application:
     app.router.add_get("/brains", brains)
     app.router.add_post("/brain", set_brain)
     app.router.add_get("/auth/status", auth_status)
-    app.router.add_post("/auth/twitch/start", twitch_start)
-    app.router.add_post("/auth/twitch/poll", twitch_poll)
+    app.router.add_post("/auth/twitch/login", twitch_login_ep)
     app.router.add_post("/auth/openai", openai_login)
     app.router.add_post("/auth/logout", do_logout)
     app.router.add_post("/channel", set_channel)

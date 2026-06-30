@@ -49,9 +49,11 @@
   <div class="card req">
     <div class="row"><div class="tile tw"><svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M4 3 3 7v12h4v2h3l2-2h3l5-5V3H4zm15 8-3 3h-4l-2 2v-2H7V5h12v6z"/><path d="M13 8h2v4h-2zM16 8h2v4h-2z"/></svg></div>
       <div><div class="pname">Twitch</div><div class="psub">read your channel's chat — required</div></div></div>
-    <label class="lbl" for="cid">Twitch app Client ID</label>
-    <input id="cid" class="inp" placeholder="paste from your Twitch dev app" autocomplete="off">
-    <a class="help" href="https://dev.twitch.tv/console/apps/create" target="_blank" rel="noopener">How to get a Client ID (2 min) →</a>
+    <label class="lbl" for="cid">Client ID</label>
+    <input id="cid" class="inp" placeholder="from your Twitch dev app" autocomplete="off">
+    <label class="lbl" for="csec" style="margin-top:.5rem">Client Secret</label>
+    <input id="csec" class="inp" type="password" placeholder="New Secret from the same app" autocomplete="off">
+    <a class="help" href="https://dev.twitch.tv/console/apps/create" target="_blank" rel="noopener">Create app &middot; set OAuth redirect to http://localhost:27420 &rarr;</a>
     <button id="twbtn" class="btn tw">Login with Twitch</button>
     <div id="twout" class="out"></div>
   </div>
@@ -63,7 +65,7 @@
     <div id="aiout" class="out"></div>
   </div>
 
-  <p class="foot">When the Twitch redirect setting is asked for during app creation, use <code>http://localhost</code>. Your tokens are stored locally in <code>%APPDATA%\HighlightRadar</code> — never sent anywhere but Twitch/OpenAI. <a href="https://dev.twitch.tv/console/apps/create" target="_blank" rel="noopener">Create a Twitch app</a>.</p>
+  <p class="foot">In the Twitch app, set the <b>OAuth Redirect URL</b> to <code>http://localhost:27420</code> and copy both the <b>Client ID</b> and a <b>New Secret</b>. Your tokens are stored locally in <code>%APPDATA%\HighlightRadar</code> — never sent anywhere but Twitch/OpenAI. <a href="https://dev.twitch.tv/console/apps/create" target="_blank" rel="noopener">Create a Twitch app</a>.</p>
 </div>
 <script>
 (function(){
@@ -72,19 +74,12 @@
   var twbtn=document.getElementById('twbtn'), twout=document.getElementById('twout');
   twbtn.onclick=function(){
     var cid=document.getElementById('cid').value.trim();
-    if(!cid){twout.textContent='Enter your Client ID first.';return;}
-    twbtn.disabled=true; twout.textContent='Starting Twitch login…';
-    post('/auth/twitch/start',{client_id:cid}).then(function(r){
-      if(r.status!=='ok'){twout.textContent='Error: '+(r.error||'failed'); twbtn.disabled=false; return;}
-      var dc=r.device_code, uri=r.verification_uri||'https://www.twitch.tv/activate', code=r.user_code, ms=(r.interval||5)*1000;
-      twout.innerHTML='<b>1.</b> Go to <a href="'+uri+'" target="_blank" rel="noopener">'+uri+'</a><br><b>2.</b> Enter code <span class="code">'+code+'</span><br><span class="muted">waiting for you to authorize…</span>';
-      try{window.open(uri,'_blank');}catch(e){}
-      var t=setInterval(function(){
-        post('/auth/twitch/poll',{device_code:dc}).then(function(p){
-          if(p.status==='ok'){clearInterval(t); twout.textContent='Connected as '+(p.login||'you')+' — loading panel…'; setTimeout(function(){location.reload();},700);}
-          else if(p.status==='error'){clearInterval(t); twout.textContent='Error: '+p.error; twbtn.disabled=false;}
-        }).catch(function(){});
-      }, ms);
+    var sec=document.getElementById('csec').value.trim();
+    if(!cid||!sec){twout.textContent='Enter Client ID and Client Secret first.';return;}
+    twbtn.disabled=true; twout.textContent='Opening Twitch in your browser — click Authorize, then come back…';
+    post('/auth/twitch/login',{client_id:cid,client_secret:sec}).then(function(r){
+      if(r.status==='ok'){twout.textContent='Connected as '+(r.login||'you')+' — loading panel…'; setTimeout(function(){location.reload();},700);}
+      else {twout.textContent='Error: '+(r.error||'failed'); twbtn.disabled=false;}
     }).catch(function(e){twout.textContent='Error: '+e; twbtn.disabled=false;});
   };
   var aibtn=document.getElementById('aibtn'), aiout=document.getElementById('aiout');
