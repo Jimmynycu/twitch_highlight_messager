@@ -6,7 +6,18 @@ live streamer panel in the browser.
 
 Pipeline: **source → scorer (the brain) → web panel (SSE)**.
 
-## Quickstart (Windows / PowerShell)
+## Run it — one click, no Python
+
+```powershell
+./build.ps1            # builds dist\radar.exe (one file, ~35 MB)
+```
+
+Then **double-click `dist\radar.exe`** — it starts the local server and opens the panel
+in your browser. No Python, no install, no folder to poke at. Mock chat by default; set
+`RADAR_CHANNEL` for a real channel. (To share it, attach `dist\radar.exe` to a GitHub
+Release — it's too big to live in the repo; or the other person runs `build.ps1`.)
+
+## Quickstart for development (Windows / PowerShell)
 
 ```powershell
 python -m venv .venv
@@ -51,7 +62,7 @@ More brains land after the research pass (see Status).
 | `RADAR_MOCK` | _(off)_ | force mock even with a channel set |
 | `OPENAI_API_KEY` | _(unset)_ | set it (and `pip install openai`) to unlock the LLM brains |
 | `RADAR_LLM_MODEL` | `gpt-4o-mini` | model the LLM brains use |
-| `RADAR_AI_SUBAUTH` | _(off)_ | `=1` to reuse a ChatGPT subscription via `ai-sub-auth` instead of a key |
+| `RADAR_LLM` | `sub` | LLM backend: `sub` (ChatGPT subscription, default) · `openai` (API key) · `auto` |
 
 ## Layout
 
@@ -73,5 +84,6 @@ selfcheck.py     `python selfcheck.py` — runnable, no network
 - [x] Four rule brains, switchable **live** from the panel dropdown: `heuristic` (Balanced), `crowd_pulse`, `community`, `question`
 - [x] Brain presets from the research pass; LLM presets (`answer_chat`, `everything_smart`, `safe_and_quiet`) implemented (`LLMBrain`, provider-agnostic) — auto-enable when `OPENAI_API_KEY` is set, otherwise shown as "needs key"
 - [x] End-to-end QA — `selfcheck.py` green (incl. LLM brain + registration seam) + live panel / SSE / brain-switch verified on Windows
-- [x] `ai-sub-auth` adapter wired (opt-in `RADAR_AI_SUBAUTH=1`) to reuse a ChatGPT subscription — **unverified**: not on PyPI (install from source), API assumed from its README, and needs your one-time `ai.connect()` login. The `OPENAI_API_KEY` path is the tested LLM route.
+- [x] One-click Windows build: `build.ps1` → `dist\radar.exe`, double-click to run (verified serving the live panel)
+- [x] ChatGPT **subscription is the default** LLM backend (`RADAR_LLM=sub`, lazy login) with `OPENAI_API_KEY` as fallback — **adapter unverified live**: `ai-sub-auth` isn't on PyPI (install from source), API assumed from its README, needs your one-time `ai.connect()` login. Wiring proven against a mock.
 - [ ] TwitchIO OAuth for sub / cheer / raid events (full Community First)

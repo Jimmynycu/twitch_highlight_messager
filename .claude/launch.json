@@ -4,7 +4,7 @@
     {
       "name": "radar",
       "runtimeExecutable": "python",
-      "runtimeArgs": ["-c", "import os; os.environ['RADAR_SCORER']='heuristic'; from radar.app import run; run()"],
+      "runtimeArgs": ["-c", "import os; os.environ['RADAR_SCORER']='heuristic'; os.environ['RADAR_NO_BROWSER']='1'; from radar.app import run; run()"],
       "port": 8080
     }
   ]

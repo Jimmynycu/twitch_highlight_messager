@@ -147,6 +147,42 @@ def check_llm_client_parse():
     assert LLMLabelClient(boom).classify("x", "g", []) == "none"
 
 
+def check_subscription_default():
+    """Subscription is the default backend; prove the path with a FAKE ai_sub_auth
+    module (no real lib, no login). Verifies lazy connect + chat_sync -> label -> brain."""
+    import os
+    import sys
+    import types
+    from collections import deque as _dq
+
+    connects = []
+    fake = types.ModuleType("ai_sub_auth")
+
+    class AI:
+        def connect(self):
+            connects.append(1)                       # lazy: only on first classify
+
+        def chat_sync(self, prompt):
+            return types.SimpleNamespace(content="question" if "?" in prompt else "none")
+
+    fake.AI = AI
+    sys.modules["ai_sub_auth"] = fake
+    os.environ.pop("RADAR_LLM", None)                # default == sub
+    os.environ.pop("OPENAI_API_KEY", None)
+    try:
+        import radar.llm as llm
+        c = llm.get_client()
+        assert c is not None, "sub-default should yield a client when the lib is present"
+        assert not connects, "connect() must be lazy, not at get_client() time"
+        assert c.classify("what sens?", "goal", []) == "question"
+        assert connects, "first classify should trigger the one-time connect()"
+        b = llm.LLMBrain("answer_chat", "ask", {"question"}, c)
+        h = b.score(Message("u", "what sens do you use?"), _dq(maxlen=8))
+        assert h is not None and h.why == "q"
+    finally:
+        sys.modules.pop("ai_sub_auth", None)
+
+
 if __name__ == "__main__":
     check_scorer()
     check_source()
@@ -156,4 +192,5 @@ if __name__ == "__main__":
     check_llm_brain()
     check_llm_registration()
     check_llm_client_parse()
+    check_subscription_default()
     print("selfcheck OK")

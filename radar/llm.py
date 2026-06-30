@@ -130,27 +130,29 @@ def _openai_complete():
 
 
 def _aisub_complete():
-    """Reuse a ChatGPT subscription via ai-sub-auth. Opt-in: RADAR_AI_SUBAUTH=1.
+    """Reuse a ChatGPT subscription via ai-sub-auth — the DEFAULT LLM backend.
 
-    Untested seam — needs the user's one-time `ai.connect()` browser login (the token is
-    cached after). Import-guarded and fully defensive so it can never break startup or
-    the zero-setup path: any failure returns None and the LLM brains stay "needs key".
+    Available whenever the lib imports; the one-time `ai.connect()` browser login is
+    LAZY (first classify call, token cached after) so startup never blocks. Fully
+    defensive: any failure -> 'none'; an absent lib -> None (rule brains unaffected).
+    Not on PyPI — install from source:
+        pip install git+https://github.com/AlexAnys/ai-sub-auth
     """
-    if os.environ.get("RADAR_AI_SUBAUTH", "").lower() not in ("1", "true", "yes", "on"):
-        return None
     try:
-        from ai_sub_auth import AI
+        import ai_sub_auth  # noqa: F401   availability check only — no login here
     except Exception:
         return None
-    try:
-        ai = AI()
-        ai.connect()                          # reuses the cached token after first login
-    except Exception:
-        return None
+
+    state = {"ai": None}
 
     def complete(system: str, user: str) -> str:
         try:
-            r = ai.chat_sync(system + "\n\n" + user)
+            if state["ai"] is None:
+                from ai_sub_auth import AI
+                ai = AI()
+                ai.connect()                  # one-time login on first use; cached after
+                state["ai"] = ai
+            r = state["ai"].chat_sync(system + "\n\n" + user)
             return getattr(r, "content", None) or str(r) or "none"
         except Exception:
             return "none"
@@ -161,10 +163,19 @@ def _aisub_complete():
 def get_client() -> Optional[LLMClient]:
     """Return a usable LLM client, or None when nothing is configured.
 
-    Order: OPENAI_API_KEY (OpenAI), then RADAR_AI_SUBAUTH=1 (reuse a ChatGPT sub via
-    ai-sub-auth). None -> the LLM brains stay "needs key" in the picker.
+    Default backend is the ChatGPT **subscription** (ai-sub-auth); an OPENAI_API_KEY is
+    the fallback. Override with RADAR_LLM = sub | openai | auto. None -> the LLM brains
+    stay "needs setup" in the picker (rule brains still work with zero setup).
     """
-    comp = _openai_complete() or _aisub_complete()
-    if comp is not None:
-        return LLMLabelClient(comp)
+    pref = os.environ.get("RADAR_LLM", "sub").lower()
+    if pref == "openai":
+        order = (_openai_complete,)
+    elif pref == "auto":
+        order = (_openai_complete, _aisub_complete)
+    else:                                     # "sub" (default) / "subscription"
+        order = (_aisub_complete, _openai_complete)
+    for build in order:
+        comp = build()
+        if comp is not None:
+            return LLMLabelClient(comp)
     return None

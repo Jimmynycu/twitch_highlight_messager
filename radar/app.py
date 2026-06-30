@@ -5,6 +5,10 @@ the panel can switch brains live (POST /brain) without a restart.
 """
 from __future__ import annotations
 import asyncio
+import os
+import sys
+import threading
+import webbrowser
 from collections import deque
 from pathlib import Path
 
@@ -16,7 +20,12 @@ from .sink import WebPanelSink
 from .source import MockSource, TwitchSource
 from .presets import BRAINS
 
-WEB = Path(__file__).resolve().parent.parent / "web"
+def _web_dir() -> Path:
+    base = getattr(sys, "_MEIPASS", None)            # PyInstaller one-file unpack dir
+    return Path(base) / "web" if base else Path(__file__).resolve().parent.parent / "web"
+
+
+WEB = _web_dir()
 
 
 async def pump(source, holder: dict, sink: WebPanelSink, window_size: int) -> None:
@@ -88,10 +97,20 @@ def build_app(cfg: Config) -> web.Application:
     return app
 
 
+def _open(url: str) -> None:
+    try:
+        webbrowser.open(url)
+    except Exception:
+        pass
+
+
 def run() -> None:
     cfg = Config.load()
+    url = f"http://localhost:{cfg.port}"
     src = "mock" if cfg.mock else f"#{cfg.channel}"
-    print(f"Highlight Radar -> http://localhost:{cfg.port}   source={src}   brain={cfg.scorer}")
+    print(f"Highlight Radar -> {url}   source={src}   brain={cfg.scorer}")
     if cfg.mock:
         print("  (mock mode — set RADAR_CHANNEL=<channel> for live Twitch chat)")
+    if os.environ.get("RADAR_NO_BROWSER", "").lower() not in ("1", "true", "yes", "on"):
+        threading.Timer(1.2, lambda: _open(url)).start()   # pop the panel open on launch
     web.run_app(build_app(cfg), host="127.0.0.1", port=cfg.port, print=None)

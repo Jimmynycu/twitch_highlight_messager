@@ -19,6 +19,7 @@ Thumbs.db
 dist/
 build/
 *.log
+*.spec
 
 # tokens (never commit)
 .tio.tokens.json
