@@ -49,6 +49,8 @@ More brains land after the research pass (see Status).
 | `RADAR_SCORER` | `question` | which brain |
 | `RADAR_PORT` | `8080` | panel port |
 | `RADAR_MOCK` | _(off)_ | force mock even with a channel set |
+| `OPENAI_API_KEY` | _(unset)_ | set it (and `pip install openai`) to unlock the LLM brains |
+| `RADAR_LLM_MODEL` | `gpt-4o-mini` | model the LLM brains use |
 
 ## Layout
 
@@ -68,6 +70,6 @@ selfcheck.py     `python selfcheck.py` — runnable, no network
 
 - [x] Pipeline end to end — mock + anonymous Twitch read, live panel
 - [x] Four rule brains, switchable **live** from the panel dropdown: `heuristic` (Balanced), `crowd_pulse`, `community`, `question`
-- [x] Brain presets from the research pass; LLM presets (`answer_chat`, `everything_smart`, `safe_and_quiet`) shown in the picker, enabled once a key/login is wired
-- [x] End-to-end QA — `selfcheck.py` green + live panel / SSE / brain-switch verified on Windows
-- [ ] LLM brains wired to `ai-sub-auth`; TwitchIO OAuth for sub/cheer/raid events
+- [x] Brain presets from the research pass; LLM presets (`answer_chat`, `everything_smart`, `safe_and_quiet`) implemented (`LLMBrain`, provider-agnostic) — auto-enable when `OPENAI_API_KEY` is set, otherwise shown as "needs key"
+- [x] End-to-end QA — `selfcheck.py` green (incl. LLM brain + registration seam) + live panel / SSE / brain-switch verified on Windows
+- [ ] Reuse a ChatGPT **subscription** via `ai-sub-auth` (today: `OPENAI_API_KEY`); TwitchIO OAuth for sub / cheer / raid events

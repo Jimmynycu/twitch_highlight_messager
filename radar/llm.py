@@ -1,0 +1,134 @@
+"""LLM brains — the research presets that grade chat with a model.
+
+The decision path is provider-agnostic and unit-tested with a fake client:
+    cheap noise filter -> candidate gate (only spend a call on plausible lines)
+    -> client.classify -> accept-label check -> map to a panel category.
+
+The ONLY part that needs a key/login is the real client's `classify` (it builds the
+prompt and calls the model). With no key, `get_client()` returns None and these
+brains never register — the panel shows them as "needs key". `ai-sub-auth` (reuse a
+ChatGPT subscription) plugs in at `get_client()` later; OPENAI_API_KEY works today.
+"""
+from __future__ import annotations
+import os
+import re
+from typing import Optional, Protocol
+
+from .models import Message, Highlight
+
+# LLM label -> the panel's category key
+LABEL_CAT = {"question": "q", "hype": "hype", "funny": "fun", "new": "nw"}
+
+# preset id -> (goal handed to the model, labels this preset is allowed to surface)
+PRESET_GOALS = {
+    "answer_chat": (
+        "Surface only genuine, answerable questions or direct callouts to the streamer. "
+        "Ignore rhetorical, sarcastic, backseat-as-question, and copypasta.",
+        {"question"}),
+    "everything_smart": (
+        "Surface anything genuinely interesting: real questions, crowd energy, funny or "
+        "novel lines, first-timers. Filter toxicity, spam, and sarcasm-misread-as-praise.",
+        {"question", "hype", "funny", "new"}),
+    "safe_and_quiet": (
+        "Surface ONLY must-react moments: clearly genuine high-relevance questions and the "
+        "biggest positive crowd peaks. Filter everything else aggressively.",
+        {"question", "hype"}),
+}
+
+_CMD = re.compile(r"^\s*!")
+_SPAM = ("http://", "https://", "discord.gg/", "follow my", "check out my", "cheap view", "buy follow")
+_EMOTES = ("KEKW", "OMEGALUL", "LULW", "LUL", "Pog", "POGGERS", "monkaS")
+
+
+def _noise(t: str) -> bool:
+    if len(t) < 6 or _CMD.match(t):
+        return True
+    low = t.lower()
+    return any(s in low for s in _SPAM)
+
+
+class LLMClient(Protocol):
+    def classify(self, message: str, goal: str, recent: list[str]) -> str: ...
+
+
+class LLMBrain:
+    def __init__(self, name: str, goal: str, accept, client: LLMClient, streamer: str = ""):
+        self.name = name
+        self.goal = goal
+        self.accept = set(accept)
+        self.client = client
+        self.streamer = streamer.lstrip("#").lower()
+
+    def _candidate(self, t: str) -> bool:
+        """Cheap gate: only spend a model call on plausibly-interesting lines."""
+        if "?" in t or len(t.split()) >= 4 or any(e in t for e in _EMOTES):
+            return True
+        return bool(self.streamer) and ("@" + self.streamer) in t.lower()
+
+    def score(self, msg: Message, window) -> Optional[Highlight]:
+        t = msg.text.strip()
+        if _noise(t) or not self._candidate(t):
+            return None
+        try:
+            recent = [m.text for m in list(window)[-12:]]
+            label = (self.client.classify(t, self.goal, recent) or "none").strip().lower()
+        except Exception:
+            return None                      # a flaky model never breaks the pump
+        if label not in self.accept:
+            return None
+        cat = LABEL_CAT.get(label)
+        if not cat:
+            return None
+        return Highlight(msg, why=cat, score=1.5, reason=f"LLM · {label}")
+
+
+class OpenAIClient:
+    """Real client — the one untested seam (needs a key). Defensive by design."""
+    _LABELS = "question, hype, funny, new, none"
+
+    def __init__(self, complete):
+        self._complete = complete            # callable(system, user) -> str
+
+    def classify(self, message: str, goal: str, recent: list[str]) -> str:
+        system = (f"You grade Twitch chat for a streamer. Goal: {goal} "
+                  f"Reply with exactly ONE label from: {self._LABELS}. "
+                  f"Use 'none' if the message should not be surfaced.")
+        user = "Recent chat:\n" + "\n".join(recent[-8:]) + f"\n\nMessage to classify:\n{message}"
+        out = (self._complete(system, user) or "none").lower()
+        for lab in ("question", "hype", "funny", "new"):
+            if lab in out:
+                return lab
+        return "none"
+
+
+def _openai_complete():
+    """Build an OPENAI_API_KEY-backed completion fn, or None if unavailable."""
+    if not os.environ.get("OPENAI_API_KEY"):
+        return None
+    try:
+        from openai import OpenAI
+    except Exception:
+        return None
+    client = OpenAI()
+    model = os.environ.get("RADAR_LLM_MODEL", "gpt-4o-mini")
+
+    def complete(system: str, user: str) -> str:
+        r = client.chat.completions.create(
+            model=model, max_tokens=4, temperature=0,
+            messages=[{"role": "system", "content": system},
+                      {"role": "user", "content": user}])
+        return r.choices[0].message.content or "none"
+
+    return complete
+
+
+def get_client() -> Optional[LLMClient]:
+    """Return a usable LLM client, or None when nothing is configured.
+
+    Today: OPENAI_API_KEY. Later: an `ai-sub-auth` token (reuse a ChatGPT sub) wires
+    in right here behind the same LLMClient interface.
+    """
+    comp = _openai_complete()
+    if comp is not None:
+        return OpenAIClient(comp)
+    return None

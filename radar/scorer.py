@@ -58,3 +58,23 @@ from .heuristic import HeuristicBrain  # noqa: E402
 SCORERS["heuristic"] = HeuristicBrain()                      # balanced — the all-rounder
 SCORERS["crowd_pulse"] = HeuristicBrain(profile="crowd")     # crowd energy only
 SCORERS["community"] = HeuristicBrain(profile="community")   # questions + newcomers
+
+# LLM presets — register only when a model key/login is configured; otherwise the
+# panel shows them as "needs key". Provider-agnostic (OPENAI_API_KEY today).
+from .llm import LLMBrain, get_client, PRESET_GOALS  # noqa: E402
+
+
+def register_llm(client) -> list[str]:
+    """Register the LLM presets against `client`; return the names added.
+
+    Called at import with whatever get_client() finds. The seam tests call it with a
+    fake client to prove the presets become selectable once a key/login exists.
+    """
+    for name, (goal, accept) in PRESET_GOALS.items():
+        SCORERS[name] = LLMBrain(name, goal, accept, client)
+    return list(PRESET_GOALS)
+
+
+_llm_client = get_client()
+if _llm_client is not None:
+    register_llm(_llm_client)

@@ -83,10 +83,65 @@ def check_profiles():
         assert n in SCORERS, n
 
 
+def check_llm_brain():
+    from collections import deque as _dq
+    from radar.llm import LLMBrain, get_client, PRESET_GOALS
+
+    seen = []
+
+    class Fake:
+        def classify(self, message, goal, recent):
+            seen.append(message)
+            t = message.lower()
+            if t.endswith("?"):
+                return "question"
+            if "kekw" in t:
+                return "funny"
+            return "none"
+
+    w = _dq(maxlen=10)
+    ask = LLMBrain("answer_chat", "ask-only", {"question"}, Fake())
+    # noise/short never reaches the model (cheap filter first)
+    assert ask.score(Message("u", "hi"), w) is None and not seen
+    # a genuine question surfaces as q
+    h = ask.score(Message("u", "what sensitivity do you use?"), w)
+    assert h is not None and h.why == "q", h
+    # funny is classified but answer_chat doesn't accept it -> filtered
+    assert ask.score(Message("u", "KEKW KEKW that was a great moment"), w) is None
+    # everything_smart DOES accept funny
+    allb = LLMBrain("everything_smart", "all", {"question", "hype", "funny", "new"}, Fake())
+    assert allb.score(Message("u", "KEKW KEKW that was a great moment"), w) is not None
+    # preset goals are defined for the three LLM presets
+    assert set(PRESET_GOALS) == {"answer_chat", "everything_smart", "safe_and_quiet"}
+    # without a key, get_client() is None and the LLM brains don't register
+    if get_client() is None:
+        assert "answer_chat" not in SCORERS
+
+
+def check_llm_registration():
+    """With a client present, the 3 LLM presets register and are selectable."""
+    from radar.scorer import register_llm, SCORERS as REG, get_scorer
+
+    class Fake:
+        def classify(self, message, goal, recent):
+            return "none"
+
+    added = register_llm(Fake())
+    try:
+        for n in ("answer_chat", "everything_smart", "safe_and_quiet"):
+            assert n in REG, n
+            assert get_scorer(n).name == n        # selectable by name -> picker enables it
+    finally:
+        for n in added:                           # restore the no-key state
+            REG.pop(n, None)
+
+
 if __name__ == "__main__":
     check_scorer()
     check_source()
     check_config()
     check_heuristic()
     check_profiles()
+    check_llm_brain()
+    check_llm_registration()
     print("selfcheck OK")

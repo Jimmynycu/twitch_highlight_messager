@@ -1,1 +1,3 @@
 aiohttp>=3.9
+# optional — unlocks the LLM brains (answer_chat / everything_smart / safe_and_quiet):
+# openai>=1.0
