@@ -9,6 +9,7 @@ import json
 import os
 import pathlib
 import re
+import urllib.request
 
 APP_DIR = pathlib.Path(os.environ.get("APPDATA") or pathlib.Path.home()) / "HighlightRadar"
 STORE = APP_DIR / "settings.json"
@@ -48,6 +49,33 @@ def set_channel(name: str) -> None:
     d = _load()
     d["channel"] = normalize_channel(name)
     _save(d)
+
+
+# Twitch's own public web Client-Id — lets us query GQL anonymously (no user login).
+_GQL = "https://gql.twitch.tv/gql"
+_WEB_CLIENT_ID = "kimne78kx3ncx6brgo4mv6wki5h1ko"
+
+
+def channel_exists(name: str):
+    """True/False if the Twitch login exists. None if the check itself failed (then allow).
+
+    ponytail: uses Twitch's public web client-id over GQL — no OAuth. If it ever breaks,
+    None means we fall back to letting the channel through rather than blocking the user.
+    """
+    name = normalize_channel(name)
+    if not name:
+        return False
+    body = json.dumps({"query": "query($l:String!){user(login:$l){id}}",
+                       "variables": {"l": name}}).encode()
+    req = urllib.request.Request(_GQL, data=body,
+                                 headers={"Client-Id": _WEB_CLIENT_ID,
+                                          "Content-Type": "application/json"})
+    try:
+        with urllib.request.urlopen(req, timeout=8) as r:
+            data = json.loads(r.read().decode())
+        return bool((data.get("data") or {}).get("user"))
+    except Exception:
+        return None
 
 
 def get_goal() -> str:

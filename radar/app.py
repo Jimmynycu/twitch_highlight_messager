@@ -91,14 +91,19 @@ def build_app(cfg: Config) -> web.Application:
         ch = auth.normalize_channel((await request.json()).get("channel", ""))
         if not ch:
             return web.json_response({"ok": False, "error": "Not a valid Twitch channel name."}, status=400)
+        loop = asyncio.get_running_loop()
+        exists = await loop.run_in_executor(None, auth.channel_exists, ch)   # real Twitch check
+        if exists is False:
+            return web.json_response({"ok": False, "error": f"Channel '{ch}' doesn't exist on Twitch."}, status=404)
         auth.set_channel(ch)
         start_pump()
         return web.json_response({"ok": True, "channel": state["channel"]})
 
     async def brains(_r):
         active = holder["scorer"].name
-        return web.json_response([{**b, "available": b["name"] in SCORERS,
-                                   "active": b["name"] == active} for b in BRAINS])
+        # only brains that actually work right now: rule brains always; LLM ones after connect
+        return web.json_response([{**b, "available": True, "active": b["name"] == active}
+                                  for b in BRAINS if b["name"] in SCORERS])
 
     async def set_brain(request):
         name = (await request.json()).get("name", "")
