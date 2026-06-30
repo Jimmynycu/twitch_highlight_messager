@@ -41,7 +41,7 @@
     go.disabled=true; err.textContent="Connecting to #"+v+"…";
     fetch("/channel",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({channel:v})})
       .then(function(r){return r.json();})
-      .then(function(r){ if(r.ok){location.reload();} else {err.textContent="Try again."; go.disabled=false;} })
+      .then(function(r){ if(r.ok){location.reload();} else {err.textContent=r.error||"Try again."; go.disabled=false;} })
       .catch(function(e){err.textContent="Error: "+e; go.disabled=false;});
   }
   go.onclick=watch;

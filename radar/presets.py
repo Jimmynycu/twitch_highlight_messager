@@ -8,6 +8,8 @@ when an LLM key/login is wired, so the picker shows them but marks them "needs k
 """
 
 BRAINS = [
+    {"name": "custom", "label": "Your gems",
+     "tagline": "Highlights what YOU describe — set it up in Settings.", "needs_llm": True},
     {"name": "heuristic", "label": "Balanced",
      "tagline": "Crowd energy + questions + newcomers. The all-rounder.", "needs_llm": False},
     {"name": "crowd_pulse", "label": "Crowd Pulse",

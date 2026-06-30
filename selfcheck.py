@@ -202,6 +202,22 @@ def check_channel_input():
     assert n("") == ""
 
 
+def check_gems():
+    """Custom 'Your gems' goal store + brain factory (no network)."""
+    import pathlib
+    import tempfile
+    import radar.auth as a
+    from radar.llm import custom_brain, LLMLabelClient
+    tmp = pathlib.Path(tempfile.mkdtemp())
+    a.APP_DIR, a.STORE = tmp, tmp / "settings.json"
+    assert a.get_goal() == ""
+    a.set_goal("  funny copypasta and big plays  ")
+    assert a.get_goal() == "funny copypasta and big plays"
+    assert custom_brain("", None) is None and custom_brain("x", None) is None
+    b = custom_brain("surface funny", LLMLabelClient(lambda s, u: "funny"))
+    assert b and b.name == "custom"
+
+
 def check_channel_store():
     """Channel persistence (temp dir, no network)."""
     import pathlib
@@ -226,4 +242,5 @@ if __name__ == "__main__":
     check_subscription_default()
     check_channel_input()
     check_channel_store()
+    check_gems()
     print("selfcheck OK")

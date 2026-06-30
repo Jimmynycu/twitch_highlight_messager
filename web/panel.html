@@ -162,7 +162,7 @@
   var lo=document.getElementById("logout");
   if(lo) lo.onclick=function(){
     var ch=prompt("Watch which channel?"); if(!ch) return;
-    fetch("/channel",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({channel:ch.replace(/^#/,"").trim()})}).then(function(){location.reload();}).catch(function(){location.reload();});
+    fetch("/channel",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({channel:ch})}).then(function(r){return r.json();}).then(function(r){ if(r.ok) location.reload(); else alert(r.error||"Invalid channel."); }).catch(function(){});
   };
 
   // live stream

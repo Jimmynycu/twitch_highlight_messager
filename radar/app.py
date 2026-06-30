@@ -21,6 +21,7 @@ from .scorer import get_scorer, SCORERS
 from .sink import WebPanelSink
 from .source import MockSource, TwitchSource
 from .presets import BRAINS
+from .llm import custom_brain, subscription_client, get_client, is_subscription_connected
 
 
 def _web_dir() -> Path:
@@ -69,6 +70,15 @@ def build_app(cfg: Config) -> web.Application:
         src = MockSource(cfg.mock_rate) if ch == "(mock)" else TwitchSource(ch)
         state["task"] = asyncio.create_task(pump(src, holder, sink, cfg.window))
 
+    def _refresh_custom() -> None:
+        """Register the user's 'Your gems' brain when a goal is set and an LLM is available."""
+        goal = auth.get_goal()
+        client = (subscription_client() if is_subscription_connected() else None) or get_client()
+        if goal and client:
+            SCORERS["custom"] = custom_brain(goal, client)
+        else:
+            SCORERS.pop("custom", None)
+
     async def index(_r):
         return web.FileResponse(WEB / ("panel.html" if channel() else "login.html"))
 
@@ -78,11 +88,12 @@ def build_app(cfg: Config) -> web.Application:
                                   "openai": is_subscription_connected() or bool(os.environ.get("OPENAI_API_KEY"))})
 
     async def set_channel(request):
-        ch = (await request.json()).get("channel", "").strip()
-        if ch:
-            auth.set_channel(ch)
-            start_pump()
-        return web.json_response({"ok": bool(ch), "channel": state["channel"]})
+        ch = auth.normalize_channel((await request.json()).get("channel", ""))
+        if not ch:
+            return web.json_response({"ok": False, "error": "Not a valid Twitch channel name."}, status=400)
+        auth.set_channel(ch)
+        start_pump()
+        return web.json_response({"ok": True, "channel": state["channel"]})
 
     async def brains(_r):
         active = holder["scorer"].name
@@ -98,6 +109,21 @@ def build_app(cfg: Config) -> web.Application:
         holder["scorer"] = sc
         return web.json_response({"ok": True, "active": name})
 
+    async def get_gems(_r):
+        return web.json_response({"goal": auth.get_goal()})
+
+    async def set_gems(request):
+        goal = (await request.json()).get("goal", "").strip()
+        auth.set_goal(goal)
+        _refresh_custom()
+        if goal and "custom" in SCORERS:
+            sc = SCORERS["custom"]
+            _bind_streamer(sc, state["channel"] or "")
+            holder["scorer"] = sc
+            return web.json_response({"ok": True, "active": "custom"})
+        note = "" if not goal else "Connect ChatGPT (or set OPENAI_API_KEY) to use your gems."
+        return web.json_response({"ok": bool(goal), "active": holder["scorer"].name, "note": note})
+
     async def settings_page(_r):
         return web.FileResponse(WEB / "settings.html")
 
@@ -105,11 +131,11 @@ def build_app(cfg: Config) -> web.Application:
         loop = asyncio.get_running_loop()
         res = await loop.run_in_executor(None, auth.openai_connect)   # blocking OAuth, off the loop
         if res.get("status") == "ok":
-            from .llm import subscription_client
             from .scorer import register_llm
             c = subscription_client()
             if c:
                 register_llm(c)                  # smart brains light up immediately
+            _refresh_custom()                    # and the user's custom gems brain
         return web.json_response(res)
 
     app = web.Application()
@@ -121,8 +147,11 @@ def build_app(cfg: Config) -> web.Application:
     app.router.add_post("/channel", set_channel)
     app.router.add_get("/settings", settings_page)
     app.router.add_post("/auth/openai", openai_login)
+    app.router.add_get("/gems", get_gems)
+    app.router.add_post("/gems", set_gems)
 
     async def _start(_a):
+        _refresh_custom()
         start_pump()
 
     async def _stop(_a):

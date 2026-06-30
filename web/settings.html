@@ -36,6 +36,8 @@
   .dot{width:9px;height:9px;border-radius:50%;background:var(--text-3)} .ai.on .dot{background:var(--good)}
   .btn{border:none;background:var(--accent);color:#160d28;font-family:var(--sans);font-weight:650;font-size:.92rem;padding:.6rem 1rem;border-radius:9px;cursor:pointer}
   .btn:disabled{opacity:.5;cursor:not-allowed}
+  .goal{width:100%;min-height:110px;background:var(--frame);border:1px solid var(--hair);border-radius:11px;color:var(--text);font-family:var(--sans);font-size:.92rem;line-height:1.5;padding:.7rem .85rem;resize:vertical;margin-bottom:.7rem}
+  .goal:focus{outline:none;border-color:var(--accent)}
   .out{font-size:.84rem;color:var(--text-2);margin-top:.7rem;min-height:1.1em}
   .foot{color:var(--text-3);font-size:.78rem;margin-top:1rem}
   .foot code{font-family:var(--mono);background:var(--surface-2);padding:.05em .35em;border-radius:5px}
@@ -64,6 +66,13 @@
   <div class="ai" id="aistatus"><span class="dot"></span><span id="aitext">checking…</span></div>
   <button class="btn" id="connect">Connect ChatGPT</button>
   <div class="out" id="aiout"></div>
+
+  <h2>Your gems <span class="opt">what to highlight</span></h2>
+  <p class="desc">Describe what YOU want surfaced — or paste a few example messages. The smart brain watches chat for lines like this and tags them <em>Your gems</em>. Needs ChatGPT connected (above).</p>
+  <textarea id="goal" class="goal" placeholder="e.g. funny copypasta and inside jokes, big-play hype, genuine questions aimed at me, first-timers saying hi — skip generic 'hi' and bot spam"></textarea>
+  <button class="btn" id="savegems">Save &amp; use my gems</button>
+  <div class="out" id="gemout"></div>
+
   <p class="foot">One-time login, cached locally in <code>%APPDATA%\HighlightRadar</code>. Prefer a key? Set <code>OPENAI_API_KEY</code> instead.</p>
 </div>
 <script>
@@ -102,13 +111,25 @@
       fetch("/health").then(function(r){return r.json();})
     ]).then(function(res){ renderBrains(res[0]); renderAI(res[1].openai); })
       .catch(function(e){ brainsEl.textContent="Could not load: "+e; });
+    fetch("/gems").then(function(r){return r.json();}).then(function(g){
+      var el=document.getElementById("goal"); if(el && !el.value && g.goal) el.value=g.goal;
+    }).catch(function(){});
   }
   connectBtn.onclick=function(){
     connectBtn.disabled=true; aiout.textContent="Opening ChatGPT login in your browser — sign in, then come back…";
     fetch("/auth/openai",{method:"POST"}).then(function(r){return r.json();}).then(function(r){
-      if(r.status==="ok"){ aiout.textContent="Connected ✓"; load(); }
+      if(r.status==="ok"){ aiout.textContent="Connected ✓ — now describe what to highlight below ↓"; load(); var g=document.getElementById("goal"); if(g){ g.scrollIntoView({behavior:"smooth",block:"center"}); setTimeout(function(){g.focus();},400); } }
       else { aiout.textContent="Could not connect: "+(r.error||"unavailable"); connectBtn.disabled=false; }
     }).catch(function(e){ aiout.textContent="Error: "+e; connectBtn.disabled=false; });
+  };
+  document.getElementById("savegems").onclick=function(){
+    var g=document.getElementById("goal").value.trim();
+    var out=document.getElementById("gemout"); out.textContent="Saving…";
+    fetch("/gems",{method:"POST",headers:J,body:JSON.stringify({goal:g})}).then(function(r){return r.json();}).then(function(r){
+      if(r.active==="custom"){ out.textContent="Saved — now highlighting your gems ✓"; load(); }
+      else if(r.ok){ out.textContent=r.note||"Saved."; load(); }
+      else { out.textContent="Type what you want highlighted first."; }
+    }).catch(function(e){ out.textContent="Error: "+e; });
   };
   load();
 })();

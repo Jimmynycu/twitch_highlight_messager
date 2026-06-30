@@ -50,6 +50,22 @@ def set_channel(name: str) -> None:
     _save(d)
 
 
+def get_goal() -> str:
+    """The user's own description of what to highlight (drives the 'Your gems' brain)."""
+    return _load().get("gem_goal", "")
+
+
+def set_goal(text: str) -> None:
+    d = _load()
+    d["gem_goal"] = (text or "").strip()
+    _save(d)
+
+
+def openai_connected() -> bool:
+    """True once the user has actually completed the in-app ChatGPT connect."""
+    return bool(_load().get("openai_connected"))
+
+
 def openai_connect() -> dict:
     """Optional: reuse a ChatGPT subscription via ai_sub_auth (opens its OAuth login).
 
@@ -61,4 +77,7 @@ def openai_connect() -> dict:
         AI(provider="openai_codex").connect()
     except Exception as e:
         return {"status": "error", "error": f"{type(e).__name__}: {e}"[:200]}
+    d = _load()
+    d["openai_connected"] = True
+    _save(d)
     return {"status": "ok"}

@@ -187,12 +187,26 @@ def subscription_client():
     return LLMLabelClient(comp) if comp else None
 
 
+def custom_brain(goal: str, client):
+    """LLM brain that surfaces whatever matches the user's OWN words/examples."""
+    if not (goal and client):
+        return None
+    return LLMBrain("custom", goal, {"question", "hype", "funny", "new"}, client)
+
+
 def is_subscription_connected() -> bool:
-    """True if a ChatGPT (codex) OAuth token is already cached — no login triggered."""
+    """True only if the user actually connected (flag) or a real token is persisted.
+
+    NOT true for a merely-importable Codex CLI — that false positive made the smart
+    brains look available while their LLM calls silently failed (dead feed).
+    """
+    from . import auth
+    if auth.openai_connected():
+        return True
     try:
         from ai_sub_auth.providers import PROVIDERS
         from ai_sub_auth.token_store import TokenStore
         store = TokenStore(filename=PROVIDERS["openai_codex"].token_filename)
-        return bool(store.load() or store.try_import_codex_cli())
+        return bool(store.load())
     except Exception:
         return False
