@@ -54,6 +54,31 @@ def _caps_ratio(t: str) -> float:
     return sum(c.isupper() for c in letters) / len(letters) if letters else 0.0
 
 
+def normalize_message_rules(raw: dict | None) -> dict:
+    raw = raw or {}
+    try:
+        min_chars = int(raw.get("min_chars", 0) or 0)
+    except (TypeError, ValueError):
+        min_chars = 0
+    return {
+        "min_chars": max(0, min(min_chars, 500)),
+        "no_all_caps": bool(raw.get("no_all_caps")),
+        "no_emotes": bool(raw.get("no_emotes")),
+    }
+
+
+def message_allowed(msg: Message, rules: dict | None) -> bool:
+    rules = normalize_message_rules(rules)
+    text = msg.text.strip()
+    if rules["min_chars"] and len(text) < rules["min_chars"]:
+        return False
+    if rules["no_all_caps"] and len([c for c in text if c.isalpha()]) >= 4 and _caps_ratio(text) >= 0.8:
+        return False
+    if rules["no_emotes"] and (msg.tags.get("emotes") or any(t in FUNNY or t in HYPE for t in text.split())):
+        return False
+    return True
+
+
 class HeuristicBrain:
     # tunables
     SPIKE_WINDOW = 3.0   # seconds counted as "now"

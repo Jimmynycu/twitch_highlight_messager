@@ -61,8 +61,8 @@ More brains land after the research pass (see Status).
 | `RADAR_PORT` | `8080` | panel port |
 | `RADAR_MOCK` | _(off)_ | force mock even with a channel set |
 | `OPENAI_API_KEY` | _(unset)_ | set it (and `pip install openai`) to unlock the LLM brains |
-| `RADAR_LLM_MODEL` | `gpt-4o-mini` | model the LLM brains use |
-| `RADAR_LLM` | `sub` | LLM backend: `sub` (ChatGPT subscription, default) · `openai` (API key) · `auto` |
+| `RADAR_LLM_MODEL` | `gpt-4o-mini` (key) / `gpt-5.5` (subscription) | model the LLM brains use |
+| `RADAR_LLM` | `openai` | LLM backend: `openai` (API key) · `sub` (ChatGPT subscription) · `auto`. The app auto-uses the subscription when it's connected in-app. |
 
 ## Layout
 
@@ -104,5 +104,5 @@ surfaces ~3–5% of chat (real questions, @mentions/callouts, crowd moments, gen
 - [x] Brain presets from the research pass; LLM presets (`answer_chat`, `everything_smart`, `safe_and_quiet`) implemented (`LLMBrain`, provider-agnostic) — auto-enable when `OPENAI_API_KEY` is set, otherwise shown as "needs key"
 - [x] End-to-end QA — `selfcheck.py` green (incl. LLM brain + registration seam) + live panel / SSE / brain-switch verified on Windows
 - [x] One-click Windows build: `build.ps1` → `dist\radar.exe`, double-click to run (verified serving the live panel)
-- [x] ChatGPT **subscription is the default** LLM backend (`RADAR_LLM=sub`, lazy login) with `OPENAI_API_KEY` as fallback — **adapter unverified live**: `ai-sub-auth` isn't on PyPI (install from source), API assumed from its README, needs your one-time `ai.connect()` login. Wiring proven against a mock.
+- [x] ChatGPT **subscription LLM path verified live** (ai-sub-auth, model `gpt-5.5` — `gpt-4o` is rejected on ChatGPT/Codex accounts): realtime **batch scoring** (one model call per ~2.5s window, off the event loop, bounded backlog) surfaced correct labeled gems + a **"best to reply" pick per batch** on the #1 live channel (82k viewers). Per-message LLM calls can never keep up with live chat — the batch path is the realtime design.
 - [ ] TwitchIO OAuth for sub / cheer / raid events (full Community First)

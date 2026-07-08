@@ -89,6 +89,20 @@ def set_goal(text: str) -> None:
     _save(d)
 
 
+def get_message_rules() -> dict:
+    from .heuristic import normalize_message_rules
+    return normalize_message_rules(_load().get("message_rules"))
+
+
+def set_message_rules(rules: dict) -> dict:
+    from .heuristic import normalize_message_rules
+    rules = normalize_message_rules(rules)
+    d = _load()
+    d["message_rules"] = rules
+    _save(d)
+    return rules
+
+
 def openai_connected() -> bool:
     """True once the user has actually completed the in-app ChatGPT connect."""
     return bool(_load().get("openai_connected"))

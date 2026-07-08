@@ -51,7 +51,7 @@ def check_config():
 
 def check_heuristic():
     from collections import deque as _dq
-    from radar.heuristic import HeuristicBrain
+    from radar.heuristic import HeuristicBrain, message_allowed
     b = HeuristicBrain(streamer="captainclutch")
     w = _dq(maxlen=50)
     clock = [1000.0]
@@ -71,6 +71,12 @@ def check_heuristic():
     nw = Message("newbie_kev", "hi there everyone", ts=2000.0, tags={"first-msg": "1"})
     assert cm.score(nw, _dq(maxlen=8)).why == "nw"
     assert b.score(Message("x", "hi there everyone", ts=2001.0, tags={"first-msg": "1"}), _dq(maxlen=8)) is None  # balanced ignores
+    rules = {"min_chars": 20, "no_all_caps": True, "no_emotes": True}
+    assert message_allowed(Message("u", "this is long enough text"), rules)
+    assert not message_allowed(Message("u", "too short"), rules)
+    assert not message_allowed(Message("u", "THIS IS LONG ENOUGH"), rules)
+    assert not message_allowed(Message("u", "this message has KEKW in it"), rules)
+    assert not message_allowed(Message("u", "this message has native emote", tags={"emotes": "0-4"}), rules)
 
 
 def check_profiles():
@@ -153,6 +159,31 @@ def check_llm_client_parse():
     assert LLMLabelClient(boom).classify("x", "g", []) == "none"
 
 
+def check_llm_batch():
+    """Batch classify (the realtime path) + best-pick parse + score_batch wiring."""
+    from collections import deque as _dq
+    from radar.llm import LLMLabelClient, LLMBrain
+
+    out = "1: question\n2: none\n3: hype\nbest: 3"
+    c = LLMLabelClient(lambda system, user: out)
+    labels, best = c.classify_batch(["a?", "b", "LETS GO"], "g", [])
+    assert labels == ["question", "none", "hype"] and best == 2, (labels, best)
+    # garbage output degrades to all-none, never raises
+    labels, best = LLMLabelClient(lambda s, u: "??!")\
+        .classify_batch(["a", "b"], "g", [])
+    assert labels == ["none", "none"] and best is None
+
+    # !cmd is noise -> only 2 candidates reach the model, renumbered 1..2
+    c2 = LLMLabelClient(lambda system, user: "1: question\n2: hype\nbest: 2")
+    b = LLMBrain("t", "g", {"question", "hype"}, c2)
+    msgs = [Message("u1", "what sens do you use?"), Message("u2", "!cmd"),
+            Message("u3", "LETS GO THAT WAS INSANE")]
+    hits = b.score_batch(msgs, _dq(maxlen=8))
+    assert len(hits) == 2, hits
+    assert hits[0].why == "q" and hits[1].why == "hype"
+    assert "best to reply" in hits[1].reason and hits[1].score > hits[0].score
+
+
 def check_subscription_default():
     """Subscription is the default backend; prove the path with a FAKE ai_sub_auth
     module (no real lib, no login). Verifies lazy connect + chat_sync -> label -> brain."""
@@ -222,6 +253,18 @@ def check_gems():
     assert b and b.name == "custom"
 
 
+def check_message_rules_store():
+    """Message rule persistence (temp dir, no network)."""
+    import pathlib
+    import tempfile
+    import radar.auth as a
+    tmp = pathlib.Path(tempfile.mkdtemp())
+    a.APP_DIR, a.STORE = tmp, tmp / "settings.json"
+    assert a.get_message_rules() == {"min_chars": 0, "no_all_caps": False, "no_emotes": False}
+    assert a.set_message_rules({"min_chars": "20", "no_all_caps": True, "no_emotes": True}) == {
+        "min_chars": 20, "no_all_caps": True, "no_emotes": True}
+
+
 def check_channel_store():
     """Channel persistence (temp dir, no network)."""
     import pathlib
@@ -243,8 +286,10 @@ if __name__ == "__main__":
     check_llm_brain()
     check_llm_registration()
     check_llm_client_parse()
+    check_llm_batch()
     check_subscription_default()
     check_channel_input()
     check_channel_store()
     check_gems()
+    check_message_rules_store()
     print("selfcheck OK")

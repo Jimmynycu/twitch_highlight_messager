@@ -26,6 +26,10 @@
   .btn{border:none;background:var(--accent);color:var(--on-accent);font-family:var(--sans);font-weight:600;font-size:14px;letter-spacing:-.01em;padding:.6rem 1.2rem;border-radius:999px;cursor:pointer;transition:background .12s,transform .12s}
   .btn:hover{background:var(--accent-hover)} .btn:active{background:var(--accent-dim);transform:scale(.97)} .btn:disabled{opacity:.5;cursor:not-allowed}
   .out{font-family:var(--mono);font-size:11px;color:var(--text-2)}
+  .rules{display:grid;gap:.65rem;background:var(--sc);border:1px solid var(--outline);border-radius:12px;padding:.9rem;margin-bottom:.5rem}
+  .rule{display:flex;align-items:center;justify-content:space-between;gap:1rem;color:var(--text-2);font-size:14px}
+  .rule input[type="number"]{width:88px;background:var(--frame);border:1px solid var(--outline);border-radius:7px;color:var(--text);font-family:var(--mono);font-size:14px;padding:.45rem .55rem}
+  .rule input[type="checkbox"]{width:18px;height:18px;accent-color:var(--accent)}
   .brain{display:flex;align-items:center;gap:.7rem;background:var(--sc);border:1px solid var(--outline);border-radius:12px;padding:.8rem .9rem;margin-bottom:.5rem;cursor:pointer;transition:.12s}
   .brain:hover{border-color:var(--outline-strong);background:var(--sc-hi)}
   .brain.active{border-color:var(--accent);background:var(--accent-soft)}
@@ -52,6 +56,17 @@
     <span class="out" id="gemout"></span>
   </div>
 
+  <h2>Message rules</h2>
+  <div class="rules">
+    <label class="rule"><span>Minimum message characters</span><input id="minchars" type="number" min="0" max="500" step="1" value="0"></label>
+    <label class="rule"><span>No all-caps messages</span><input id="noallcaps" type="checkbox"></label>
+    <label class="rule"><span>No messages with emotes</span><input id="noemotes" type="checkbox"></label>
+  </div>
+  <div class="actions">
+    <button class="btn" id="saverules">Save rules</button>
+    <span class="out" id="ruleout"></span>
+  </div>
+
   <h2>Or pick a brain</h2>
   <div id="brains"></div>
 </div>
@@ -60,7 +75,10 @@
   var J={"Content-Type":"application/json"};
   var brainsEl=document.getElementById("brains"), connectBtn=document.getElementById("connect"),
       saveBtn=document.getElementById("savegems"), goal=document.getElementById("goal"),
-      gemout=document.getElementById("gemout"), gemhelp=document.getElementById("gemhelp");
+      gemout=document.getElementById("gemout"), gemhelp=document.getElementById("gemhelp"),
+      minchars=document.getElementById("minchars"), noallcaps=document.getElementById("noallcaps"),
+      noemotes=document.getElementById("noemotes"), saverules=document.getElementById("saverules"),
+      ruleout=document.getElementById("ruleout");
 
   function renderBrains(list){
     brainsEl.innerHTML="";
@@ -88,6 +106,9 @@
     fetch("/brains").then(function(r){return r.json();}).then(renderBrains).catch(function(e){brainsEl.textContent="Could not load: "+e;});
     fetch("/health").then(function(r){return r.json();}).then(function(h){ renderAI(!!h.openai); }).catch(function(){});
     fetch("/gems").then(function(r){return r.json();}).then(function(g){ if(g.goal && !goal.value) goal.value=g.goal; }).catch(function(){});
+    fetch("/message-rules").then(function(r){return r.json();}).then(function(r){
+      minchars.value=r.min_chars||0; noallcaps.checked=!!r.no_all_caps; noemotes.checked=!!r.no_emotes;
+    }).catch(function(){});
   }
   saveBtn.onclick=function(){
     var g=goal.value.trim(); gemout.textContent="Saving…";
@@ -103,6 +124,14 @@
       if(r.status==="ok"){ gemout.textContent="Connected ✓ — now describe your gems"; load(); goal.focus(); }
       else { gemout.textContent="Could not connect: "+(r.error||"unavailable"); connectBtn.disabled=false; }
     }).catch(function(e){ gemout.textContent="Error: "+e; connectBtn.disabled=false; });
+  };
+  saverules.onclick=function(){
+    ruleout.textContent="Saving…";
+    fetch("/message-rules",{method:"POST",headers:J,body:JSON.stringify({
+      min_chars:minchars.value, no_all_caps:noallcaps.checked, no_emotes:noemotes.checked
+    })}).then(function(r){return r.json();}).then(function(r){
+      ruleout.textContent=r.ok?"Saved — applies live":"Could not save.";
+    }).catch(function(e){ ruleout.textContent="Error: "+e; });
   };
   load();
 })();

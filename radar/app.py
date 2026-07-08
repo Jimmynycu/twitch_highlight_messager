@@ -22,6 +22,7 @@ from .sink import WebPanelSink
 from .source import MockSource, TwitchSource
 from .presets import BRAINS
 from .llm import custom_brain, subscription_client, get_client, is_subscription_connected
+from .heuristic import message_allowed
 
 
 def _web_dir() -> Path:
@@ -33,12 +34,40 @@ WEB = _web_dir()
 
 
 async def pump(source, holder: dict, sink: WebPanelSink, window_size: int) -> None:
+    """Rule brains score per message (sub-ms). LLM brains score in BATCHES off the
+    event loop — one ~2s model call can never run per message on live chat, so
+    candidates buffer and a flusher classifies the newest batch every few seconds."""
     window: deque = deque(maxlen=window_size)
-    async for msg in source.stream():
-        window.append(msg)
-        hit = holder["scorer"].score(msg, window)
-        if hit:
-            sink.emit(hit.to_event())
+    pending: deque = deque(maxlen=32)                     # bounded: busy chat drops oldest
+    loop = asyncio.get_running_loop()
+
+    async def flusher() -> None:
+        while True:
+            await asyncio.sleep(2.5)
+            sc = holder["scorer"]
+            if not pending or not hasattr(sc, "score_batch"):
+                continue
+            batch = list(pending)
+            pending.clear()
+            hits = await loop.run_in_executor(None, sc.score_batch, batch, list(window))
+            for h in hits:
+                sink.emit(h.to_event())
+
+    flush_task = asyncio.create_task(flusher())
+    try:
+        async for msg in source.stream():
+            if not message_allowed(msg, holder.get("message_rules")):
+                continue
+            window.append(msg)
+            scorer = holder["scorer"]
+            if hasattr(scorer, "score_batch"):
+                pending.append(msg)                       # scored by the flusher
+                continue
+            hit = scorer.score(msg, window)
+            if hit:
+                sink.emit(hit.to_event())
+    finally:
+        flush_task.cancel()
 
 
 def _bind_streamer(scorer, channel: str) -> None:
@@ -47,7 +76,7 @@ def _bind_streamer(scorer, channel: str) -> None:
 
 
 def build_app(cfg: Config) -> web.Application:
-    holder = {"scorer": get_scorer(cfg.scorer)}
+    holder = {"scorer": get_scorer(cfg.scorer), "message_rules": auth.get_message_rules()}
     sink = WebPanelSink()
     state = {"task": None, "channel": None}
     forced_mock = bool(os.environ.get("RADAR_MOCK"))
@@ -129,6 +158,14 @@ def build_app(cfg: Config) -> web.Application:
         note = "" if not goal else "Connect ChatGPT (or set OPENAI_API_KEY) to use your gems."
         return web.json_response({"ok": bool(goal), "active": holder["scorer"].name, "note": note})
 
+    async def get_message_rules(_r):
+        holder["message_rules"] = auth.get_message_rules()
+        return web.json_response(holder["message_rules"])
+
+    async def set_message_rules(request):
+        holder["message_rules"] = auth.set_message_rules(await request.json())
+        return web.json_response({"ok": True, "message_rules": holder["message_rules"]})
+
     async def settings_page(_r):
         return web.FileResponse(WEB / "settings.html")
 
@@ -158,6 +195,8 @@ def build_app(cfg: Config) -> web.Application:
     app.router.add_post("/auth/openai", openai_login)
     app.router.add_get("/gems", get_gems)
     app.router.add_post("/gems", set_gems)
+    app.router.add_get("/message-rules", get_message_rules)
+    app.router.add_post("/message-rules", set_message_rules)
 
     async def _start(_a):
         _refresh_custom()

@@ -144,7 +144,7 @@
 
   function rel(ts){var d=Date.now()/1000-ts;if(d<3)return"now";if(d<60)return(d|0)+"s";return((d/60)|0)+"m";}
   function card(ev){
-    var cat=CAT[ev.cat]?ev.cat:"q", pri=!!PRIORITY[cat];
+    var cat=CAT[ev.cat]?ev.cat:"q", pri=!!PRIORITY[cat]||(+ev.score||0)>=2.5; // 2.5 = LLM "best to reply"
     var el=document.createElement("article");
     el.className="gem "+cat+(pri?" priority":"")+" fresh";el.dataset.cat=cat;el.dataset.t=ev.ts;
     if(!active[cat])el.hidden=true;

@@ -81,6 +81,31 @@ class LLMBrain:
             return None
         return Highlight(msg, why=cat, score=1.5, reason=f"LLM · {label}")
 
+    def score_batch(self, msgs: list[Message], window) -> list[Highlight]:
+        """Realtime path: ONE model call for a batch of messages (~2s latency each —
+        per-message calls can never keep up with live chat). Also picks the single
+        best message to spend time replying to on stream."""
+        cand = [m for m in msgs if not _noise(m.text.strip()) and self._candidate(m.text.strip())]
+        cand = cand[-16:]                    # bound the call; newest matter most
+        if not cand:
+            return []
+        try:
+            recent = [m.text for m in list(window)[-12:]]
+            labels, best = self.client.classify_batch([m.text for m in cand], self.goal, recent)
+        except Exception:
+            return []
+        hits: list[Highlight] = []
+        for i, (m, label) in enumerate(zip(cand, labels)):
+            if label not in self.accept:
+                continue
+            cat = LABEL_CAT.get(label)
+            if not cat:
+                continue
+            is_best = (best == i)
+            hits.append(Highlight(m, why=cat, score=2.5 if is_best else 1.5,
+                                  reason=f"LLM · {label}" + (" · best to reply" if is_best else "")))
+        return hits
+
 
 class LLMLabelClient:
     """Turns any text-completion backend into a one-label classifier.
@@ -107,6 +132,35 @@ class LLMLabelClient:
                 return lab
         return "none"
 
+    def classify_batch(self, messages: list[str], goal: str, recent: list[str]):
+        """One call, many messages. Returns (labels_per_message, best_index|None)."""
+        system = (f"You grade Twitch chat for a streamer. Goal: {goal} "
+                  f"For EACH numbered message output one line 'N: label' with a label "
+                  f"from: {self._LABELS}. Use 'none' for anything not worth surfacing. "
+                  f"Then one final line 'best: N' for the single message most worth the "
+                  f"streamer's time to reply to on air (or 'best: none').")
+        numbered = "\n".join(f"{i+1}. {m}" for i, m in enumerate(messages))
+        user = "Recent chat:\n" + "\n".join(recent[-8:]) + f"\n\nMessages to grade:\n{numbered}"
+        labels = ["none"] * len(messages)
+        best = None
+        try:
+            out = (self._complete(system, user) or "").lower()
+        except Exception:
+            return labels, best
+        for line in out.splitlines():
+            m = re.match(r"\s*best\s*[:\-]\s*(\d+)", line)
+            if m:
+                i = int(m.group(1)) - 1
+                if 0 <= i < len(messages):
+                    best = i
+                continue
+            m = re.match(r"\s*(\d+)\s*[.:\-]\s*(\w+)", line)
+            if m:
+                i, lab = int(m.group(1)) - 1, m.group(2)
+                if 0 <= i < len(messages) and lab in ("question", "hype", "funny", "new", "none"):
+                    labels[i] = lab
+        return labels, best
+
 
 def _openai_complete():
     """Build an OPENAI_API_KEY-backed completion fn, or None if unavailable."""
@@ -121,7 +175,7 @@ def _openai_complete():
 
     def complete(system: str, user: str) -> str:
         r = client.chat.completions.create(
-            model=model, max_tokens=4, temperature=0,
+            model=model, max_tokens=200, temperature=0,   # room for batch 'N: label' lines
             messages=[{"role": "system", "content": system},
                       {"role": "user", "content": user}])
         return r.choices[0].message.content or "none"
@@ -144,6 +198,9 @@ def _aisub_complete():
         return None
 
     state = {"ai": None}
+    # gpt-4o (the lib default) is REJECTED on ChatGPT/Codex accounts, and a tiny max_tokens
+    # starves a reasoning model before it emits the labels — both verified live.
+    model = os.environ.get("RADAR_LLM_MODEL", "gpt-5.5")
 
     def complete(system: str, user: str) -> str:
         try:
@@ -152,7 +209,7 @@ def _aisub_complete():
                 ai = AI(provider="openai_codex")          # ChatGPT subscription
                 ai.connect()                              # reuses cached token; logs in on first use
                 state["ai"] = ai
-            r = state["ai"].chat_sync(user, system=system, max_tokens=5)
+            r = state["ai"].chat_sync(user, system=system, model=model, max_tokens=4000)
             return getattr(r, "content", None) or "none"
         except Exception:
             return "none"
