@@ -59,15 +59,18 @@ class LLMBrain:
         self.client = client
         self.streamer = streamer.lstrip("#").lower()
 
-    def _candidate(self, t: str) -> bool:
+    def _candidate(self, msg: Message) -> bool:
         """Cheap gate: only spend a model call on plausibly-interesting lines."""
+        t = msg.text.strip()
         if "?" in t or len(t.split()) >= 4 or any(e in t for e in _EMOTES):
             return True
-        return bool(self.streamer) and ("@" + self.streamer) in t.lower()
+        channel = (msg.channel or "").lstrip("#").lower()
+        low = t.lower()
+        return any(name and ("@" + name) in low for name in (self.streamer, channel))
 
     def score(self, msg: Message, window) -> Optional[Highlight]:
         t = msg.text.strip()
-        if _noise(t) or not self._candidate(t):
+        if _noise(t) or not self._candidate(msg):
             return None
         try:
             recent = [m.text for m in list(window)[-12:]]
@@ -85,7 +88,7 @@ class LLMBrain:
         """Realtime path: ONE model call for a batch of messages (~2s latency each —
         per-message calls can never keep up with live chat). Also picks the single
         best message to spend time replying to on stream."""
-        cand = [m for m in msgs if not _noise(m.text.strip()) and self._candidate(m.text.strip())]
+        cand = [m for m in msgs if not _noise(m.text.strip()) and self._candidate(m)]
         cand = cand[-16:]                    # bound the call; newest matter most
         if not cand:
             return []

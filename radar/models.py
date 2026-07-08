@@ -10,6 +10,7 @@ class Message:
     text: str
     ts: float = field(default_factory=time.time)
     color: str = "#9C95AE"          # Twitch name color if known
+    channel: str = ""               # source channel for multi-channel scan mode
     tags: dict = field(default_factory=dict)
 
 
@@ -27,6 +28,7 @@ class Highlight:
             "user": self.msg.user,
             "color": self.msg.color,
             "text": self.msg.text,
+            "channel": self.msg.channel,
             "score": self.score,
             "reason": self.reason,
             "ts": self.msg.ts,

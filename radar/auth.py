@@ -40,6 +40,8 @@ def normalize_channel(s: str) -> str:
     m = re.search(r"twitch\.tv/([^/?#\s]+)", s, re.I)   # strip a twitch URL to its first path part
     if m:
         s = m.group(1)
+    elif re.search(r"twitch\.tv(?:/|$)", s, re.I):
+        return ""
     s = s.lstrip("#@").strip()
     m = re.match(r"[A-Za-z0-9_]+", s)                   # the channel token
     return m.group(0).lower() if m else ""
@@ -49,6 +51,28 @@ def set_channel(name: str) -> None:
     d = _load()
     d["channel"] = normalize_channel(name)
     _save(d)
+
+
+WATCH_MODES = {"category", "channel", "custom"}
+
+
+def get_watch_mode() -> str:
+    d = _load()
+    mode = d.get("watch_mode")
+    if mode in WATCH_MODES:
+        return mode
+    return "category" if get_scan_settings().get("enabled") else "channel"
+
+
+def set_watch_mode(mode: str) -> str:
+    mode = mode if mode in WATCH_MODES else "channel"
+    d = _load()
+    d["watch_mode"] = mode
+    scan = normalize_scan_settings(d.get("scan_settings"))
+    scan["enabled"] = mode == "category"
+    d["scan_settings"] = scan
+    _save(d)
+    return mode
 
 
 # Twitch's own public web Client-Id — lets us query GQL anonymously (no user login).
@@ -104,6 +128,7 @@ def normalize_scan_settings(raw: dict | None) -> dict:
     if min_viewers > max_viewers:
         min_viewers, max_viewers = max_viewers, min_viewers
     return {
+        "enabled": bool(raw.get("enabled")),
         "category_name": category_name,
         "category_id": category_id,
         "min_viewers": min_viewers,
@@ -123,6 +148,57 @@ def set_scan_settings(settings: dict) -> dict:
     d["scan_settings"] = settings
     _save(d)
     return settings
+
+
+def normalize_custom_channels(raw) -> dict:
+    if isinstance(raw, dict):
+        values = raw.get("channels", [])
+        refresh = raw.get("refresh_minutes")
+    else:
+        values, refresh = raw, None
+    if isinstance(values, str):
+        values = re.split(r"[\s,]+", values)
+    channels = []
+    seen = set()
+    for value in values or []:
+        ch = normalize_channel(str(value))
+        if ch and ch not in seen:
+            channels.append(ch)
+            seen.add(ch)
+        if len(channels) >= 50:
+            break
+    return {"channels": channels, "refresh_minutes": _clamp_int(refresh, 5, 1, 60)}
+
+
+def get_custom_channels() -> dict:
+    return normalize_custom_channels(_load().get("custom_channels"))
+
+
+def set_custom_channels(settings) -> dict:
+    settings = normalize_custom_channels(settings)
+    d = _load()
+    d["custom_channels"] = settings
+    _save(d)
+    return settings
+
+
+def validate_channels(channels: list[str]) -> dict:
+    ok, missing = [], []
+    for channel in channels:
+        exists = channel_exists(channel)
+        if exists is False:
+            missing.append(channel)
+        else:
+            ok.append(channel)
+    return {"ok": ok, "missing": missing}
+
+
+def custom_channel_discovery(settings: dict | None = None) -> dict:
+    settings = normalize_custom_channels(settings)
+    return {"settings": settings,
+            "channels": [{"login": ch, "display_name": ch, "viewers": None}
+                         for ch in settings["channels"]],
+            "fetched": len(settings["channels"])}
 
 
 def search_categories(q: str, limit: int = 8) -> list[dict]:

@@ -8,7 +8,7 @@ TwitchSource — anonymous IRC read. No auth, no API key, no dependency: reading
 from __future__ import annotations
 import asyncio
 import random
-from typing import AsyncIterator
+from typing import AsyncIterator, Callable
 
 from .models import Message
 
@@ -109,5 +109,78 @@ class TwitchSource:
             user=tags.get("display-name") or nick,
             text=text,
             color=tags.get("color") or "#9C95AE",
+            channel=parts[1].lstrip("#").lower(),
             tags=tags,
         )
+
+
+class MultiTwitchSource:
+    HOST, PORT = TwitchSource.HOST, TwitchSource.PORT
+
+    def __init__(self, settings, discover, on_channels: Callable[[list[str]], None] | None = None):
+        self.settings = settings
+        self.discover = discover
+        self.on_channels = on_channels
+
+    async def stream(self) -> AsyncIterator[Message]:
+        while True:
+            try:
+                async for m in self._read():
+                    yield m
+            except (OSError, asyncio.IncompleteReadError):
+                await asyncio.sleep(2)
+
+    def _channels(self) -> list[str]:
+        found = self.discover(self.settings()).get("channels") or []
+        return [c["login"].lstrip("#").lower() for c in found if c.get("login")]
+
+    async def _read(self) -> AsyncIterator[Message]:
+        reader, writer = await asyncio.open_connection(self.HOST, self.PORT)
+        nick = "justinfan" + str(random.randint(10000, 99999))
+        writer.write(b"CAP REQ :twitch.tv/tags\r\n")
+        writer.write(f"NICK {nick}\r\n".encode())
+        await writer.drain()
+        current: set[str] = set()
+        loop = asyncio.get_running_loop()
+
+        async def refresh() -> float:
+            nonlocal current
+            settings = self.settings()
+            channels = set(await loop.run_in_executor(None, self._channels))
+            for ch in sorted(channels - current):
+                writer.write(f"JOIN #{ch}\r\n".encode())
+            for ch in sorted(current - channels):
+                writer.write(f"PART #{ch}\r\n".encode())
+            await writer.drain()
+            current = channels
+            if self.on_channels:
+                self.on_channels(sorted(current))
+            return max(60, int(settings.get("refresh_minutes", 5) or 5) * 60)
+
+        try:
+            refresh_in = await refresh()
+            if not current:
+                await asyncio.sleep(min(refresh_in, 60))
+                return
+            next_refresh = loop.time() + refresh_in
+            while True:
+                timeout = max(1.0, min(30.0, next_refresh - loop.time()))
+                try:
+                    raw = await asyncio.wait_for(reader.readline(), timeout=timeout)
+                except asyncio.TimeoutError:
+                    if loop.time() >= next_refresh:
+                        refresh_in = await refresh()
+                        next_refresh = loop.time() + refresh_in
+                    continue
+                if not raw:
+                    break
+                line = raw.decode("utf-8", "replace").rstrip("\r\n")
+                if line.startswith("PING"):
+                    writer.write(b"PONG :tmi.twitch.tv\r\n")
+                    await writer.drain()
+                    continue
+                msg = TwitchSource._parse(line)
+                if msg:
+                    yield msg
+        finally:
+            writer.close()

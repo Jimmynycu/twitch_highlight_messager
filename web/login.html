@@ -10,24 +10,35 @@
     --on-accent:#04140F;--accent-soft:rgba(63,224,190,.13);--q:#6AA0FF;--error:#FF6B6B;
     --sans:"Segoe UI Variable Display","Segoe UI",system-ui,-apple-system,"SF Pro Display",Arial,sans-serif;--mono:ui-monospace,"Cascadia Code","SF Mono","Consolas",Menlo,monospace;}
   *{box-sizing:border-box}
-  body{margin:0;min-height:100vh;background:var(--surface);color:var(--text);font-family:var(--sans);letter-spacing:-.01em;display:flex;align-items:center;justify-content:center;-webkit-font-smoothing:antialiased;position:relative;overflow:hidden}
+  body{margin:0;min-height:100vh;background:var(--surface);color:var(--text);font-family:var(--sans);letter-spacing:-.01em;display:flex;align-items:flex-start;justify-content:center;-webkit-font-smoothing:antialiased;position:relative;overflow:auto;padding:28px 0}
   body::before{content:"";position:fixed;inset:0;pointer-events:none;opacity:calc(.04*var(--grain));
     background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
-  .box{position:relative;z-index:1;width:100%;max-width:380px;padding:1.5rem;text-align:center}
+  .box{position:relative;z-index:1;width:100%;max-width:440px;padding:1.5rem;text-align:center}
   .logo{color:var(--accent)}
   h1{font-size:20px;font-weight:600;letter-spacing:-.025em;margin:.7rem 0 .25rem}
-  .tag{color:var(--text-2);font-size:14px;line-height:1.5;margin:0 0 1.6rem}
+  .tag{color:var(--text-2);font-size:14px;line-height:1.5;margin:0 0 1rem}
   .lbl{font-family:var(--mono);font-size:10px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--text-3);text-align:left;margin:0 0 .4rem}
+  .modes{display:grid;grid-template-columns:repeat(3,1fr);gap:.45rem;margin:0 0 1rem}
+  .mode{border:1px solid var(--outline);background:var(--sc);color:var(--text);border-radius:10px;padding:.65rem .6rem;cursor:pointer;text-align:left;font-size:13px;font-weight:650;transition:.12s}
+  .mode span{display:block;color:var(--text-3);font-family:var(--mono);font-size:9px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;margin-top:.15rem}
+  .mode:hover,.mode.on{border-color:var(--accent);background:var(--accent-soft)}
+  .pane{display:none;text-align:left}.pane.on{display:block}
   .row{display:flex;height:44px}
   .at{display:flex;align-items:center;padding:0 .1rem 0 .7rem;background:var(--frame);border:1px solid var(--outline);border-right:none;border-radius:7px 0 0 7px;color:var(--text-3);font-family:var(--mono)}
-  input{flex:1;min-width:0;background:var(--frame);border:1px solid var(--outline);border-inline:none;color:var(--text);font-family:var(--mono);font-size:15px;padding:0 .4rem}
-  input:focus{outline:none}
+  input,textarea{background:var(--frame);border:1px solid var(--outline);color:var(--text);font-family:var(--mono);font-size:15px}
+  input{flex:1;min-width:0;border-inline:none;padding:0 .4rem} textarea{width:100%;min-height:86px;border-radius:7px;padding:.65rem .75rem;resize:vertical;line-height:1.45}
+  input:focus,textarea:focus{outline:none}
   .row:focus-within .at,.row:focus-within input,.row:focus-within button{border-color:var(--accent)}
   .row:focus-within{box-shadow:0 0 0 3px var(--accent-soft);border-radius:7px}
-  button{border:1px solid var(--outline);border-left:none;background:var(--accent);color:var(--on-accent);font-family:var(--sans);font-weight:600;font-size:14px;letter-spacing:-.01em;padding:0 1.1rem;border-radius:0 7px 7px 0;cursor:pointer;white-space:nowrap;transition:background .12s}
-  button:hover{background:var(--accent-hover)} button:active{background:var(--accent-dim)} button:disabled{opacity:.55;cursor:not-allowed}
+  button{font-family:var(--sans);font-weight:600;font-size:14px;letter-spacing:-.01em;cursor:pointer;white-space:nowrap;transition:background .12s,border-color .12s}
+  .row button{border:1px solid var(--outline);border-left:none;background:var(--accent);color:var(--on-accent);padding:0 1.1rem;border-radius:0 7px 7px 0}
+  .primary,.secondary{height:40px;border:1px solid var(--outline);border-radius:7px;padding:0 1rem;margin-top:.7rem}.primary{background:var(--accent);color:var(--on-accent)}.secondary{background:var(--sc);color:var(--text-2)}
+  button:hover{background:var(--accent-hover)} .secondary:hover{background:var(--sc);border-color:var(--accent);color:var(--text)} button:active{background:var(--accent-dim)} button:disabled{opacity:.55;cursor:not-allowed}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:.55rem;margin-top:.65rem}.grid label{display:grid;gap:.25rem;color:var(--text-3);font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase}.grid input{width:100%;height:38px;border:1px solid var(--outline);border-radius:7px;padding:0 .55rem}
+  .cats{display:grid;gap:.35rem;margin-top:.4rem}.cat{border:1px solid var(--outline);background:var(--frame);border-radius:7px;color:var(--text-2);font-family:var(--mono);font-size:12px;text-align:left;padding:.45rem .6rem}.cat:hover{border-color:var(--accent);background:var(--frame);color:var(--text)}
   .err{color:var(--error);font-family:var(--mono);font-size:11px;margin-top:.7rem;min-height:1.2em;text-align:left}
   .hint{font-family:var(--mono);font-size:10px;letter-spacing:.04em;color:var(--text-3);margin-top:.4rem;text-align:left}
+  .preview{font-family:var(--mono);font-size:11px;color:var(--text-2);line-height:1.55;white-space:pre-wrap;text-align:left;margin-top:.55rem}
   .extag{font-family:var(--mono);font-size:10px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--text-3);text-align:left;margin:2.2rem 0 .5rem}
   .exgem{position:relative;background:var(--sc);border:1px solid var(--outline);border-radius:10px;padding:12px 14px 13px 17px;text-align:left;overflow:hidden}
   .exgem .st{position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--q);opacity:.5}
@@ -43,11 +54,41 @@
 <div class="box">
   <svg class="logo" viewBox="0 0 24 24" width="42" height="42" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="6" cy="18" r="1.9" fill="currentColor" stroke="none"/><path d="M6 13.6 A4.4 4.4 0 0 1 10.4 18"/><path d="M6 9.1 A8.9 8.9 0 0 1 14.9 18"/><path d="M6 4.6 A13.4 13.4 0 0 1 19.4 18"/></svg>
   <h1>Highlight Radar</h1>
-  <p class="tag">Watch a channel's chat. Only the messages worth reacting to surface here.</p>
-  <div class="lbl">Twitch channel</div>
-  <div class="row"><span class="at">#</span><input id="ch" placeholder="paste a twitch link or name" autocomplete="off" autofocus><button id="go">Start watching</button></div>
+  <p class="tag">Choose how Radar listens, then only the messages worth reacting to surface here.</p>
+  <div class="modes">
+    <button class="mode on" type="button" data-mode="channel">Single<span>one chat</span></button>
+    <button class="mode" type="button" data-mode="category">Category<span>same game</span></button>
+    <button class="mode" type="button" data-mode="custom">Custom<span>any rooms</span></button>
+  </div>
+
+  <div class="pane on" id="pane-channel">
+    <div class="lbl">Twitch channel</div>
+    <div class="row"><span class="at">#</span><input id="ch" placeholder="paste a twitch link or name" autocomplete="off" autofocus><button id="go">Start</button></div>
+    <p class="hint">accepts a link, #name, or bare name</p>
+  </div>
+
+  <div class="pane" id="pane-category">
+    <div class="lbl">Category</div>
+    <div class="row"><span class="at">cat</span><input id="catname" value="Just Chatting" autocomplete="off"><button id="previewcat" type="button">Preview</button></div>
+    <input id="catid" type="hidden" value="509658">
+    <div class="cats" id="catresults"></div>
+    <div class="grid">
+      <label>Min viewers<input id="minviewers" type="number" min="0" max="1000000" step="1" value="10"></label>
+      <label>Max viewers<input id="maxviewers" type="number" min="0" max="1000000" step="1" value="99"></label>
+      <label>Max channels<input id="maxchannels" type="number" min="1" max="50" step="1" value="10"></label>
+      <label>Refresh min<input id="refreshmins" type="number" min="1" max="60" step="1" value="5"></label>
+    </div>
+    <button class="primary" id="gocat" type="button">Start category scan</button>
+    <div class="preview" id="scanpreview"></div>
+  </div>
+
+  <div class="pane" id="pane-custom">
+    <div class="lbl">Custom channels</div>
+    <textarea id="customchannels" placeholder="one channel per line or comma-separated"></textarea>
+    <p class="hint">any existing Twitch channels, no category restriction</p>
+    <button class="primary" id="gocustom" type="button">Start custom scan</button>
+  </div>
   <div class="err" id="err"></div>
-  <p class="hint">accepts a link, #name, or bare name · no login needed</p>
 
   <div class="extag">Example gem</div>
   <article class="exgem">
@@ -57,18 +98,57 @@
   </article>
 </div>
 <script>
-  var ch=document.getElementById("ch"), go=document.getElementById("go"), err=document.getElementById("err");
-  function watch(){
-    var v=ch.value.trim().replace(/^#/,"");
-    if(!v){err.textContent="Type a channel name.";return;}
-    go.disabled=true; err.textContent="Connecting to #"+v+"…";
-    fetch("/channel",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({channel:v})})
-      .then(function(r){return r.json();})
-      .then(function(r){ if(r.ok){location.href="/";} else {err.textContent=r.error||"Try again."; go.disabled=false;} })
-      .catch(function(e){err.textContent="Error: "+e; go.disabled=false;});
+  var J={"Content-Type":"application/json"}, mode="channel", catTimer=null;
+  var ch=document.getElementById("ch"), go=document.getElementById("go"), err=document.getElementById("err"),
+      catname=document.getElementById("catname"), catid=document.getElementById("catid"), catresults=document.getElementById("catresults"),
+      minviewers=document.getElementById("minviewers"), maxviewers=document.getElementById("maxviewers"), maxchannels=document.getElementById("maxchannels"), refreshmins=document.getElementById("refreshmins"),
+      previewcat=document.getElementById("previewcat"), gocat=document.getElementById("gocat"), scanpreview=document.getElementById("scanpreview"),
+      customchannels=document.getElementById("customchannels"), gocustom=document.getElementById("gocustom");
+
+  function setMode(next){
+    mode=next; err.textContent="";
+    document.querySelectorAll(".mode").forEach(function(b){b.classList.toggle("on",b.dataset.mode===mode);});
+    document.querySelectorAll(".pane").forEach(function(p){p.classList.toggle("on",p.id==="pane-"+mode);});
+    setTimeout(function(){var el=mode==="category"?catname:(mode==="custom"?customchannels:ch); if(el)el.focus();},0);
   }
-  go.onclick=watch;
-  ch.addEventListener("keydown",function(e){if(e.key==="Enter")watch();});
+  document.querySelectorAll(".mode").forEach(function(b){b.onclick=function(){setMode(b.dataset.mode);};});
+  function scanPayload(){return {category_name:catname.value,category_id:catid.value,min_viewers:minviewers.value,max_viewers:maxviewers.value,max_channels:maxchannels.value,refresh_minutes:refreshmins.value};}
+  function post(body, button){
+    button.disabled=true; err.textContent="Starting…";
+    return fetch("/watch-mode",{method:"POST",headers:J,body:JSON.stringify(body)}).then(function(r){return r.json();}).then(function(r){
+      if(r.ok){location.assign(location.origin+"/");} else {err.textContent=r.error||"Try again."; button.disabled=false;}
+    }).catch(function(e){err.textContent="Error: "+e; button.disabled=false;});
+  }
+  go.onclick=function(){
+    if(!ch.value.trim()){err.textContent="Type a channel name.";return;}
+    post({mode:"channel",channel:ch.value},go);
+  };
+  gocat.onclick=function(){post({mode:"category",scan_settings:scanPayload()},gocat);};
+  gocustom.onclick=function(){post({mode:"custom",custom_channels:{channels:customchannels.value}},gocustom);};
+  ch.addEventListener("keydown",function(e){if(e.key==="Enter")go.click();});
+
+  catname.oninput=function(){
+    catid.value=""; scanpreview.textContent=""; clearTimeout(catTimer);
+    var q=catname.value.trim(); if(q.length<2){catresults.innerHTML="";return;}
+    catTimer=setTimeout(function(){
+      fetch("/categories?q="+encodeURIComponent(q)).then(function(r){return r.json();}).then(function(list){
+        catresults.innerHTML=""; list.forEach(function(c){var b=document.createElement("button");b.type="button";b.className="cat";b.textContent=c.name;b.onclick=function(){catname.value=c.name;catid.value=c.id;catresults.innerHTML="";};catresults.appendChild(b);});
+      }).catch(function(){});
+    },250);
+  };
+  previewcat.onclick=function(){
+    err.textContent=""; scanpreview.textContent="Finding channels…";
+    fetch("/scan-preview",{method:"POST",headers:J,body:JSON.stringify(scanPayload())}).then(function(r){return r.json();}).then(function(r){
+      var chans=r.channels||[]; if(r.ok===false){scanpreview.textContent="";err.textContent=r.error||"Pick a category result first.";return;}
+      scanpreview.textContent=chans.length?chans.slice(0,8).map(function(c){return "#"+c.login+" · "+c.viewers+" viewers";}).join("\n"):"No matching live channels in this range.";
+    }).catch(function(e){scanpreview.textContent="";err.textContent="Error: "+e;});
+  };
+  fetch("/watch-mode").then(function(r){return r.json();}).then(function(w){
+    var s=w.scan_settings||{}, custom=w.custom_channels||{};
+    ch.value=w.channel||""; catname.value=s.category_name||"Just Chatting"; catid.value=s.category_id||"509658";
+    minviewers.value=s.min_viewers||10; maxviewers.value=s.max_viewers||99; maxchannels.value=s.max_channels||10; refreshmins.value=s.refresh_minutes||5;
+    customchannels.value=(custom.channels||[]).join("\n"); setMode(w.mode||"channel");
+  }).catch(function(){setMode("channel");});
 </script>
 </body>
 </html>

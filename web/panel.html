@@ -30,7 +30,7 @@
     border-bottom:1px solid var(--outline-glass);box-shadow:inset 0 1px 0 rgba(255,255,255,.05)}
   .brand{display:flex;align-items:center;gap:.55rem}
   .brand .logo{color:var(--accent);flex-shrink:0}
-  .brand .name{font-weight:600;font-size:15px;letter-spacing:-.02em;line-height:1.1;display:block}
+  .brand .name{font-weight:600;font-size:15px;letter-spacing:-.02em;line-height:1.1;display:block;white-space:nowrap}
   .brand .sub{font-family:var(--mono);font-size:10px;letter-spacing:.06em;color:var(--text-3);display:block;margin-top:.15rem}
   .meta{margin-left:auto;display:flex;align-items:center;gap:.7rem}
   .stat{display:flex;flex-direction:column;align-items:flex-end;line-height:1}
@@ -84,6 +84,7 @@
   .chip{display:inline-flex;align-items:center;gap:.35rem;font-family:var(--mono);font-size:10px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--cat)}
   .chip .dot{width:6px;height:6px;border-radius:50%;background:var(--cat)}
   .user{font-size:13px;font-weight:650;letter-spacing:-.01em;color:var(--uc,var(--text-2))}
+  .src{font-family:var(--mono);font-size:11px;color:var(--text-3);font-variant-numeric:tabular-nums}
   .time{font-family:var(--mono);font-size:11px;color:var(--text-3);font-variant-numeric:tabular-nums}
   .acts{margin-left:auto;display:flex;gap:.15rem;opacity:0;transition:opacity .12s}
   .gem:hover .acts,.gem:focus-within .acts,.gem.kept .acts{opacity:1}
@@ -96,6 +97,18 @@
 
   @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(91,214,160,.55)}70%{box-shadow:0 0 0 7px rgba(91,214,160,0)}100%{box-shadow:0 0 0 0 rgba(91,214,160,0)}}
   @keyframes lock{from{opacity:0;transform:translateY(-8px) scale(.99)}to{opacity:1;transform:none}}
+  @media (max-width:560px){
+    .bar{gap:.55rem;padding:12px 14px}
+    .brand{gap:.45rem;min-width:0}
+    .brand .name{font-size:14px}
+    .brand .sub{display:none}
+    .meta{gap:.42rem}
+    .stat .k{display:none}
+    .stat .v{font-size:13px}
+    .brainsel{max-width:92px;font-size:10px}
+    .chan{gap:.32rem;padding:.28rem .45rem;font-size:10px}
+    .ctl{width:28px;height:28px}
+  }
   @media (prefers-reduced-motion:reduce){.gem.fresh{animation:none}.live .livedot{animation:none}}
   :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 </style>
@@ -115,7 +128,7 @@
         <div class="chan" id="status"><span class="livedot"></span><span id="statustxt">connecting…</span></div>
         <button class="ctl" id="pause" aria-label="Pause feed" title="Pause feed"><svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg></button>
         <button class="ctl" id="logout" aria-label="Change channel" title="Change channel"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg></button>
-        <a class="ctl" href="/settings" aria-label="Brain &amp; AI settings" title="Brain &amp; AI settings"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 6h8M16 6h4M4 12h4M12 12h8M4 18h8M16 18h4"/><circle cx="14" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="14" cy="18" r="2"/></svg></a>
+        <button class="ctl" id="settingsbtn" type="button" aria-label="Brain &amp; AI settings" title="Brain &amp; AI settings"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 6h8M16 6h4M4 12h4M12 12h8M4 18h8M16 18h4"/><circle cx="14" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="14" cy="18" r="2"/></svg></button>
       </div>
     </header>
     <div class="filters">
@@ -148,9 +161,10 @@
     var el=document.createElement("article");
     el.className="gem "+cat+(pri?" priority":"")+" fresh";el.dataset.cat=cat;el.dataset.t=ev.ts;
     if(!active[cat])el.hidden=true;
-    el.innerHTML='<span class="stripe"></span><div class="head"><span class="chip"><span class="dot"></span><span class="rlbl"></span></span><span class="user"></span><span class="time">'+rel(ev.ts)+'</span><span class="acts"><button class="act keep" aria-label="Keep" title="Keep"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M12 3l2.6 5.5 6 .8-4.4 4 1.1 6L12 16.6 6.1 19.3l1.1-6-4.4-4 6-.8z"/></svg></button><button class="act dismiss" aria-label="Dismiss" title="Dismiss"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M5 5l14 14M19 5L5 19"/></svg></button></span></div><p class="msg"></p>';
+    el.innerHTML='<span class="stripe"></span><div class="head"><span class="chip"><span class="dot"></span><span class="rlbl"></span></span><span class="user"></span><span class="src"></span><span class="time">'+rel(ev.ts)+'</span><span class="acts"><button class="act keep" aria-label="Keep" title="Keep"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M12 3l2.6 5.5 6 .8-4.4 4 1.1 6L12 16.6 6.1 19.3l1.1-6-4.4-4 6-.8z"/></svg></button><button class="act dismiss" aria-label="Dismiss" title="Dismiss"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M5 5l14 14M19 5L5 19"/></svg></button></span></div><p class="msg"></p>';
     el.querySelector(".rlbl").textContent=ev.reason||CAT[cat];
     var u=el.querySelector(".user");u.textContent=ev.user;u.style.setProperty("--uc",ev.color||"");
+    el.querySelector(".src").textContent=ev.channel?"#"+ev.channel:"";
     el.querySelector(".msg").textContent=ev.text;
     el.querySelector(".dismiss").onclick=function(){el.remove();};
     el.querySelector(".keep").onclick=function(){el.classList.toggle("kept");this.classList.toggle("on",el.classList.contains("kept"));};
@@ -197,11 +211,17 @@
   };
   loadBrains();
 
+  var es=null;
+  function closeEvents(){if(es){try{es.close();}catch(_){}}}
+  function nav(path){closeEvents(); location.assign(location.origin+path);}
+  window.addEventListener("beforeunload",closeEvents);
+
   // prompt()/alert() are disabled in the native webview (WebView2) — use the real picker instead.
-  document.getElementById("logout").onclick=function(){ location.href="/change"; };
+  document.getElementById("logout").onclick=function(){nav("/change");};
+  document.getElementById("settingsbtn").onclick=function(){nav("/settings");};
 
   fetch("/health").then(function(r){return r.json();}).then(function(h){
-    if(h.channel){var et=document.getElementById("emptytxt"); if(et) et.textContent="LISTENING TO #"+String(h.channel).toUpperCase()+"…";}
+    if(h.channel){var et=document.getElementById("emptytxt"); if(et) et.textContent=(h.mode==="channel"?"LISTENING TO #":"SCANNING ")+String(h.channel).toUpperCase()+"…";}
   }).catch(function(){});
 
   function setStatus(live,txt){
@@ -211,7 +231,7 @@
     document.getElementById("foottxt").textContent=live?"live · sse · localhost":"reconnecting…";
     document.getElementById("banner").classList.toggle("show",!live);
   }
-  var es=new EventSource("/events");
+  es=new EventSource("/events");
   es.onopen=function(){setStatus(true,"live");};
   es.onerror=function(){setStatus(false,"reconnecting…");};
   es.onmessage=function(e){try{onEvent(JSON.parse(e.data));}catch(_){}};

@@ -30,6 +30,8 @@
   .rule{display:flex;align-items:center;justify-content:space-between;gap:1rem;color:var(--text-2);font-size:14px}
   .rule input[type="number"]{width:88px;background:var(--frame);border:1px solid var(--outline);border-radius:7px;color:var(--text);font-family:var(--mono);font-size:14px;padding:.45rem .55rem}
   .rule input[type="text"]{flex:1;min-width:0;background:var(--frame);border:1px solid var(--outline);border-radius:7px;color:var(--text);font-family:var(--mono);font-size:14px;padding:.45rem .55rem}
+  .rule textarea{flex:1;min-width:0;min-height:72px;background:var(--frame);border:1px solid var(--outline);border-radius:7px;color:var(--text);font-family:var(--mono);font-size:13px;line-height:1.45;padding:.55rem .6rem;resize:vertical}
+  .rule input[type="radio"]{width:18px;height:18px;accent-color:var(--accent)}
   .rule input[type="checkbox"]{width:18px;height:18px;accent-color:var(--accent)}
   .cats{display:grid;gap:.35rem;margin-top:-.3rem}.cat{background:var(--frame);border:1px solid var(--outline);border-radius:7px;color:var(--text-2);font-family:var(--mono);font-size:12px;text-align:left;padding:.45rem .6rem;cursor:pointer}.cat:hover{border-color:var(--accent);color:var(--text)}
   .preview{font-family:var(--mono);font-size:11px;color:var(--text-2);line-height:1.6;margin-top:.55rem;white-space:pre-wrap}
@@ -47,7 +49,7 @@
   <header>
     <svg class="logo" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><circle cx="6" cy="18" r="1.9" fill="currentColor" stroke="none"/><path d="M6 13.6 A4.4 4.4 0 0 1 10.4 18"/><path d="M6 9.1 A8.9 8.9 0 0 1 14.9 18"/><path d="M6 4.6 A13.4 13.4 0 0 1 19.4 18"/></svg>
     <div class="name">Brain &amp; AI</div>
-    <a class="back" href="/">&larr; Panel</a>
+    <a class="back" id="backpanel" href="/">&larr; Panel</a>
   </header>
 
   <h2>Your gems</h2>
@@ -70,8 +72,21 @@
     <span class="out" id="ruleout"></span>
   </div>
 
-  <h2>Category scan proof</h2>
-  <p class="help">Find live streams by category and viewer range before multi-channel chat joins them.</p>
+  <h2>Watch mode</h2>
+  <div class="rules">
+    <label class="rule"><span>Category mode</span><input name="watchmode" id="modecategory" type="radio" value="category"></label>
+    <label class="rule"><span>Single channel mode</span><input name="watchmode" id="modechannel" type="radio" value="channel"></label>
+    <label class="rule"><span>Single channel</span><input id="singlechannel" type="text" placeholder="inoxtag"></label>
+    <label class="rule"><span>Custom mode</span><input name="watchmode" id="modecustom" type="radio" value="custom"></label>
+    <label class="rule"><span>Custom channels</span><textarea id="customchannels" placeholder="one channel per line or comma-separated"></textarea></label>
+  </div>
+  <div class="actions">
+    <button class="btn" id="savewatch">Save watch mode</button>
+    <span class="out" id="watchout"></span>
+  </div>
+
+  <h2>Category scan</h2>
+  <p class="help">Find live streams by category and viewer range, then scan their chats together.</p>
   <div class="rules">
     <label class="rule"><span>Category</span><input id="catname" type="text" value="Just Chatting" autocomplete="off"></label>
     <input id="catid" type="hidden" value="509658">
@@ -82,7 +97,7 @@
     <label class="rule"><span>Refresh minutes</span><input id="refreshmins" type="number" min="1" max="60" step="1" value="5"></label>
   </div>
   <div class="actions">
-    <button class="btn" id="savescan">Save scan settings</button>
+    <button class="btn" id="savescan">Save category settings</button>
     <button class="btn" id="previewscan">Preview channels</button>
     <span class="out" id="scanstatus"></span>
   </div>
@@ -101,10 +116,15 @@
       noemotes=document.getElementById("noemotes"), saverules=document.getElementById("saverules"),
       ruleout=document.getElementById("ruleout"), catname=document.getElementById("catname"),
       catid=document.getElementById("catid"), catresults=document.getElementById("catresults"),
-      minviewers=document.getElementById("minviewers"), maxviewers=document.getElementById("maxviewers"),
+      modecategory=document.getElementById("modecategory"), modechannel=document.getElementById("modechannel"),
+      modecustom=document.getElementById("modecustom"), singlechannel=document.getElementById("singlechannel"),
+      customchannels=document.getElementById("customchannels"), savewatch=document.getElementById("savewatch"),
+      watchout=document.getElementById("watchout"), minviewers=document.getElementById("minviewers"), maxviewers=document.getElementById("maxviewers"),
       maxchannels=document.getElementById("maxchannels"), refreshmins=document.getElementById("refreshmins"),
       savescan=document.getElementById("savescan"), previewscan=document.getElementById("previewscan"),
       scanstatus=document.getElementById("scanstatus"), scanpreview=document.getElementById("scanpreview"), catTimer=null;
+
+  document.getElementById("backpanel").onclick=function(e){e.preventDefault();location.assign(location.origin+"/");};
 
   function renderBrains(list){
     brainsEl.innerHTML="";
@@ -140,8 +160,15 @@
       minviewers.value=s.min_viewers||10; maxviewers.value=s.max_viewers||99;
       maxchannels.value=s.max_channels||20; refreshmins.value=s.refresh_minutes||5;
     }).catch(function(){});
+    fetch("/watch-mode").then(function(r){return r.json();}).then(function(w){
+      modecategory.checked=w.mode==="category"; modechannel.checked=w.mode==="channel"; modecustom.checked=w.mode==="custom";
+      singlechannel.value=w.channel||"";
+      customchannels.value=((w.custom_channels||{}).channels||[]).join("\n");
+    }).catch(function(){});
   }
   function scanPayload(){return {category_name:catname.value,category_id:catid.value,min_viewers:minviewers.value,max_viewers:maxviewers.value,max_channels:maxchannels.value,refresh_minutes:refreshmins.value};}
+  function selectedMode(){return modecategory.checked?"category":(modecustom.checked?"custom":"channel");}
+  function hasCategoryId(){return !!String(catid.value||"").trim();}
   saveBtn.onclick=function(){
     var g=goal.value.trim(); gemout.textContent="Saving…";
     fetch("/gems",{method:"POST",headers:J,body:JSON.stringify({goal:g})}).then(function(r){return r.json();}).then(function(r){
@@ -165,6 +192,17 @@
       ruleout.textContent=r.ok?"Saved — applies live":"Could not save.";
     }).catch(function(e){ ruleout.textContent="Error: "+e; });
   };
+  savewatch.onclick=function(){
+    if(selectedMode()==="category" && !hasCategoryId()){ watchout.textContent="Pick a category result first."; return; }
+    watchout.textContent="Saving…";
+    fetch("/watch-mode",{method:"POST",headers:J,body:JSON.stringify({
+      mode:selectedMode(),channel:singlechannel.value,scan_settings:scanPayload(),
+      custom_channels:{channels:customchannels.value,refresh_minutes:refreshmins.value}
+    })}).then(function(r){return r.json();}).then(function(r){
+      watchout.textContent=r.ok?"Saved — "+r.mode:"Error: "+(r.error||"could not save");
+      if(r.ok) load();
+    }).catch(function(e){watchout.textContent="Error: "+e;});
+  };
   catname.oninput=function(){
     catid.value=""; clearTimeout(catTimer); var q=catname.value.trim(); if(q.length<2){catresults.innerHTML="";return;}
     catTimer=setTimeout(function(){
@@ -174,12 +212,15 @@
     },250);
   };
   savescan.onclick=function(){
+    if(!hasCategoryId()){ scanstatus.textContent="Pick a category result first."; return; }
     scanstatus.textContent="Saving…";
     fetch("/scan-settings",{method:"POST",headers:J,body:JSON.stringify(scanPayload())}).then(function(r){return r.json();}).then(function(r){
-      scanstatus.textContent=r.ok?"Saved":"Could not save.";
+      scanstatus.textContent=r.ok?"Saved category settings":"Could not save.";
+      if(r.ok) load();
     }).catch(function(e){scanstatus.textContent="Error: "+e;});
   };
   previewscan.onclick=function(){
+    if(!hasCategoryId()){ scanstatus.textContent="Pick a category result first."; scanpreview.textContent=""; return; }
     scanstatus.textContent="Finding channels…"; scanpreview.textContent="";
     fetch("/scan-preview",{method:"POST",headers:J,body:JSON.stringify(scanPayload())}).then(function(r){return r.json();}).then(function(r){
       var chans=r.channels||[]; scanstatus.textContent="Found "+chans.length+" channels";

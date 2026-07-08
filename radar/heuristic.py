@@ -170,7 +170,8 @@ class HeuristicBrain:
                 consider(1.7, "q", "directing the run")
             if HOTTAKE_RE.search(text):
                 consider(1.3, "q", "hot take")
-            if self.streamer and ("@" + self.streamer in text.lower() or self.streamer in norm.split()):
+            streamer = (msg.channel or self.streamer).lstrip("#").lower()
+            if streamer and ("@" + streamer in text.lower() or streamer in norm.split()):
                 consider(1.5, "q", "mentions you")
 
         if "community" in g:

@@ -20,6 +20,7 @@ def check_scorer():
     h = s.score(Message("bob", "ranked after this?"), w)
     ev = h.to_event()
     assert ev["cat"] == "q" and ev["user"] == "bob" and ev["text"].endswith("?")
+    assert "channel" in ev
     assert "question" in SCORERS
     try:
         get_scorer("nope")
@@ -38,7 +39,7 @@ def check_source():
     p = TwitchSource._parse(
         "@color=#FF7070;display-name=VodZilla :vodzilla!v@v.tmi.twitch.tv PRIVMSG #chan :is this ranked?"
     )
-    assert p and p.user == "VodZilla" and p.color == "#FF7070" and p.text == "is this ranked?"
+    assert p and p.user == "VodZilla" and p.color == "#FF7070" and p.text == "is this ranked?" and p.channel == "chan"
 
 
 def check_config():
@@ -103,7 +104,7 @@ def check_llm_brain():
         def classify(self, message, goal, recent):
             seen.append(message)
             t = message.lower()
-            if t.endswith("?"):
+            if t.endswith("?") or t == "@target":
                 return "question"
             if "kekw" in t:
                 return "funny"
@@ -115,6 +116,9 @@ def check_llm_brain():
     assert ask.score(Message("u", "hi"), w) is None and not seen
     # a genuine question surfaces as q
     h = ask.score(Message("u", "what sensitivity do you use?"), w)
+    assert h is not None and h.why == "q", h
+    # multi-channel mode: short direct callout to that room's streamer still reaches LLM
+    h = ask.score(Message("u", "@target", channel="target"), w)
     assert h is not None and h.why == "q", h
     # funny is classified but answer_chat doesn't accept it -> filtered
     assert ask.score(Message("u", "KEKW KEKW that was a great moment"), w) is None
@@ -232,6 +236,8 @@ def check_channel_input():
     assert n("@moriarty_vt") == "moriarty_vt"
     assert n("https://www.twitch.tv/moriarty_vt") == "moriarty_vt"
     assert n("https://twitch.tv/moriarty_vt/videos?x=1") == "moriarty_vt"
+    assert n("https://twitch.tv/") == ""
+    assert n("twitch.tv") == ""
     assert n("  twitch.tv/Moriarty_VT  ") == "moriarty_vt"
     assert n("[moriarty_vt](https://www.twitch.tv/moriarty_vt)") == "moriarty_vt"
     assert n("") == ""
@@ -272,15 +278,24 @@ def check_scan_settings_store():
     import radar.auth as a
     tmp = pathlib.Path(tempfile.mkdtemp())
     a.APP_DIR, a.STORE = tmp, tmp / "settings.json"
-    assert a.get_scan_settings() == {"category_name": "Just Chatting", "category_id": "509658",
+    assert a.get_watch_mode() == "channel"
+    assert a.get_scan_settings() == {"enabled": False, "category_name": "Just Chatting", "category_id": "509658",
                                      "min_viewers": 10, "max_viewers": 99,
                                      "max_channels": 20, "refresh_minutes": 5}
     saved = a.set_scan_settings({"category_name": "Art", "category_id": "509660",
+                                 "enabled": True,
                                  "min_viewers": "99", "max_viewers": "10",
                                  "max_channels": "999", "refresh_minutes": "0"})
-    assert saved == {"category_name": "Art", "category_id": "509660",
+    assert saved == {"enabled": True, "category_name": "Art", "category_id": "509660",
                      "min_viewers": 10, "max_viewers": 99,
                      "max_channels": 50, "refresh_minutes": 1}
+    assert a.get_watch_mode() == "category"       # migration path from old enabled flag
+    assert a.set_watch_mode("custom") == "custom"
+    assert a.get_watch_mode() == "custom"
+    assert a.get_scan_settings()["enabled"] is False
+    custom = a.set_custom_channels({"channels": "InoxTag, #SomeChannel\n@Other", "refresh_minutes": "0"})
+    assert custom == {"channels": ["inoxtag", "somechannel", "other"], "refresh_minutes": 1}
+    assert a.custom_channel_discovery(custom)["channels"][0]["login"] == "inoxtag"
 
 
 def check_channel_store():

@@ -19,7 +19,7 @@ from . import auth
 from .config import Config
 from .scorer import get_scorer, SCORERS
 from .sink import WebPanelSink
-from .source import MockSource, TwitchSource
+from .source import MockSource, MultiTwitchSource, TwitchSource
 from .presets import BRAINS
 from .llm import custom_brain, subscription_client, get_client, is_subscription_connected
 from .heuristic import message_allowed
@@ -58,6 +58,10 @@ async def pump(source, holder: dict, sink: WebPanelSink, window_size: int) -> No
         async for msg in source.stream():
             if not message_allowed(msg, holder.get("message_rules")):
                 continue
+            holder["messages_seen"] = holder.get("messages_seen", 0) + 1
+            holder["last_message_channel"] = msg.channel or holder.get("last_message_channel", "")
+            if msg.channel:
+                holder.setdefault("message_channels_seen", set()).add(msg.channel)
             window.append(msg)
             scorer = holder["scorer"]
             if hasattr(scorer, "score_batch"):
@@ -76,9 +80,10 @@ def _bind_streamer(scorer, channel: str) -> None:
 
 
 def build_app(cfg: Config) -> web.Application:
-    holder = {"scorer": get_scorer(cfg.scorer), "message_rules": auth.get_message_rules()}
+    holder = {"scorer": get_scorer(cfg.scorer), "message_rules": auth.get_message_rules(),
+              "messages_seen": 0, "last_message_channel": "", "message_channels_seen": set()}
     sink = WebPanelSink()
-    state = {"task": None, "channel": None}
+    state = {"task": None, "channel": None, "mode": "channel", "scan_channels": []}
     forced_mock = bool(os.environ.get("RADAR_MOCK"))
     dev_channel = os.environ.get("RADAR_CHANNEL", "").strip()
 
@@ -87,17 +92,51 @@ def build_app(cfg: Config) -> web.Application:
             return "(mock)"
         return dev_channel or auth.watch_channel()
 
+    def watch_mode() -> str:
+        if forced_mock or dev_channel:
+            return "channel"
+        return auth.get_watch_mode()
+
     def start_pump() -> None:
         if state["task"]:
             state["task"].cancel()
             state["task"] = None
         ch = channel()
-        state["channel"] = ch or None
-        if not ch:
+        scan = auth.get_scan_settings()
+        mode = watch_mode()
+        state["mode"] = mode
+        if mode == "category":
+            state["channel"] = f"{scan['category_name']} {scan['min_viewers']}-{scan['max_viewers']}"
+        elif mode == "custom":
+            custom = auth.get_custom_channels()
+            state["channel"] = f"Custom {len(custom['channels'])} channels"
+        else:
+            state["channel"] = ch or None
+        state["scan_channels"] = []
+        holder["messages_seen"] = 0
+        holder["last_message_channel"] = ""
+        holder["message_channels_seen"] = set()
+        if mode == "channel" and not ch:
             return
         _bind_streamer(holder["scorer"], ch)
-        src = MockSource(cfg.mock_rate) if ch == "(mock)" else TwitchSource(ch)
+        if mode == "category":
+            src = MultiTwitchSource(auth.get_scan_settings, auth.discover_scan_channels,
+                                    lambda channels: state.update(scan_channels=channels))
+        elif mode == "custom":
+            src = MultiTwitchSource(auth.get_custom_channels, auth.custom_channel_discovery,
+                                    lambda channels: state.update(scan_channels=channels))
+        else:
+            src = MockSource(cfg.mock_rate) if ch == "(mock)" else TwitchSource(ch)
         state["task"] = asyncio.create_task(pump(src, holder, sink, cfg.window))
+
+    def _scan_settings_or_error(raw):
+        if raw is None:
+            raw = {}
+        if not isinstance(raw, dict):
+            return None, "Invalid category settings."
+        if "category_id" in raw and not str(raw.get("category_id") or "").strip():
+            return None, "Pick a category result first."
+        return auth.normalize_scan_settings(raw), ""
 
     def _refresh_custom() -> None:
         """Register the user's 'Your gems' brain when a goal is set and an LLM is available."""
@@ -109,11 +148,15 @@ def build_app(cfg: Config) -> web.Application:
             SCORERS.pop("custom", None)
 
     async def index(_r):
-        return web.FileResponse(WEB / ("panel.html" if channel() else "login.html"))
+        return web.FileResponse(WEB / ("panel.html" if channel() or watch_mode() in ("category", "custom") else "login.html"))
 
     async def health(_r):
         from .llm import is_subscription_connected
         return web.json_response({"ok": True, "brain": holder["scorer"].name, "channel": state["channel"],
+                                  "mode": state["mode"], "scan_channels": state["scan_channels"],
+                                  "messages_seen": holder.get("messages_seen", 0),
+                                  "last_message_channel": holder.get("last_message_channel", ""),
+                                  "message_channels_seen": sorted(holder.get("message_channels_seen", set())),
                                   "openai": is_subscription_connected() or bool(os.environ.get("OPENAI_API_KEY"))})
 
     async def set_channel(request):
@@ -125,6 +168,7 @@ def build_app(cfg: Config) -> web.Application:
         if exists is False:
             return web.json_response({"ok": False, "error": f"Channel '{ch}' doesn't exist on Twitch."}, status=404)
         auth.set_channel(ch)
+        auth.set_watch_mode("channel")
         start_pump()
         return web.json_response({"ok": True, "channel": state["channel"]})
 
@@ -135,8 +179,9 @@ def build_app(cfg: Config) -> web.Application:
                                   for b in BRAINS if b["name"] in SCORERS])
 
     async def set_brain(request):
-        name = (await request.json()).get("name", "")
-        if name not in SCORERS:
+        body = await request.json()
+        name = body.get("name", "") if isinstance(body, dict) else ""
+        if not isinstance(name, str) or name not in SCORERS:
             return web.json_response({"ok": False, "error": "unknown brain"}, status=400)
         sc = get_scorer(name)
         _bind_streamer(sc, state["channel"] or "")
@@ -176,10 +221,58 @@ def build_app(cfg: Config) -> web.Application:
         return web.json_response(auth.get_scan_settings())
 
     async def set_scan_settings(request):
-        return web.json_response({"ok": True, "scan_settings": auth.set_scan_settings(await request.json())})
+        settings, error = _scan_settings_or_error(await request.json())
+        if error:
+            return web.json_response({"ok": False, "error": error}, status=400)
+        settings = auth.set_scan_settings(settings)
+        start_pump()
+        return web.json_response({"ok": True, "scan_settings": settings})
+
+    async def get_watch_mode(_r):
+        return web.json_response({"mode": auth.get_watch_mode(), "channel": auth.watch_channel(),
+                                  "scan_settings": auth.get_scan_settings(),
+                                  "custom_channels": auth.get_custom_channels()})
+
+    async def set_watch_mode(request):
+        body = await request.json()
+        if not isinstance(body, dict):
+            return web.json_response({"ok": False, "error": "Invalid watch mode settings."}, status=400)
+        mode = body.get("mode", "channel")
+        if mode == "channel":
+            ch = auth.normalize_channel(body.get("channel", ""))
+            if not ch:
+                return web.json_response({"ok": False, "error": "Not a valid Twitch channel name."}, status=400)
+            loop = asyncio.get_running_loop()
+            exists = await loop.run_in_executor(None, auth.channel_exists, ch)
+            if exists is False:
+                return web.json_response({"ok": False, "error": f"Channel '{ch}' doesn't exist on Twitch."}, status=404)
+            auth.set_channel(ch)
+        elif mode == "category":
+            if body.get("scan_settings"):
+                settings, error = _scan_settings_or_error(body["scan_settings"])
+                if error:
+                    return web.json_response({"ok": False, "error": error}, status=400)
+                auth.set_scan_settings(settings)
+        elif mode == "custom":
+            custom = auth.normalize_custom_channels(body.get("custom_channels"))
+            if not custom["channels"]:
+                return web.json_response({"ok": False, "error": "Add at least one channel."}, status=400)
+            loop = asyncio.get_running_loop()
+            checked = await loop.run_in_executor(None, auth.validate_channels, custom["channels"])
+            if checked["missing"]:
+                return web.json_response({"ok": False, "error": "Unknown channel(s): " + ", ".join(checked["missing"])}, status=404)
+            auth.set_custom_channels(custom)
+        else:
+            return web.json_response({"ok": False, "error": "unknown mode"}, status=400)
+        auth.set_watch_mode(mode)
+        start_pump()
+        return web.json_response({"ok": True, "mode": auth.get_watch_mode(), "channel": state["channel"],
+                                  "scan_channels": state["scan_channels"]})
 
     async def scan_preview(request):
-        body = await request.json()
+        body, error = _scan_settings_or_error(await request.json())
+        if error:
+            return web.json_response({"ok": False, "error": error, "channels": []}, status=400)
         loop = asyncio.get_running_loop()
         preview = await loop.run_in_executor(None, auth.discover_scan_channels, body)
         return web.json_response(preview)
@@ -216,6 +309,8 @@ def build_app(cfg: Config) -> web.Application:
     app.router.add_get("/message-rules", get_message_rules)
     app.router.add_post("/message-rules", set_message_rules)
     app.router.add_get("/categories", categories)
+    app.router.add_get("/watch-mode", get_watch_mode)
+    app.router.add_post("/watch-mode", set_watch_mode)
     app.router.add_get("/scan-settings", get_scan_settings)
     app.router.add_post("/scan-settings", set_scan_settings)
     app.router.add_post("/scan-preview", scan_preview)
