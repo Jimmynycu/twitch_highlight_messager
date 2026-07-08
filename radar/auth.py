@@ -56,6 +56,23 @@ _GQL = "https://gql.twitch.tv/gql"
 _WEB_CLIENT_ID = "kimne78kx3ncx6brgo4mv6wki5h1ko"
 
 
+def _clamp_int(value, default: int, lo: int, hi: int) -> int:
+    try:
+        n = int(value)
+    except (TypeError, ValueError):
+        n = default
+    return max(lo, min(n, hi))
+
+
+def _gql(query: str, variables: dict, timeout: int = 10) -> dict:
+    body = json.dumps({"query": query, "variables": variables}).encode()
+    req = urllib.request.Request(_GQL, data=body,
+                                 headers={"Client-Id": _WEB_CLIENT_ID,
+                                          "Content-Type": "application/json"})
+    with urllib.request.urlopen(req, timeout=timeout) as r:
+        return json.loads(r.read().decode())
+
+
 def channel_exists(name: str):
     """True/False if the Twitch login exists. None if the check itself failed (then allow).
 
@@ -76,6 +93,92 @@ def channel_exists(name: str):
         return bool((data.get("data") or {}).get("user"))
     except Exception:
         return None
+
+
+def normalize_scan_settings(raw: dict | None) -> dict:
+    raw = raw or {}
+    category_name = str(raw.get("category_name") or "Just Chatting").strip() or "Just Chatting"
+    category_id = str(raw.get("category_id") or "509658").strip() or "509658"
+    min_viewers = _clamp_int(raw.get("min_viewers"), 10, 0, 1_000_000)
+    max_viewers = _clamp_int(raw.get("max_viewers"), 99, 0, 1_000_000)
+    if min_viewers > max_viewers:
+        min_viewers, max_viewers = max_viewers, min_viewers
+    return {
+        "category_name": category_name,
+        "category_id": category_id,
+        "min_viewers": min_viewers,
+        "max_viewers": max_viewers,
+        "max_channels": _clamp_int(raw.get("max_channels"), 20, 1, 50),
+        "refresh_minutes": _clamp_int(raw.get("refresh_minutes"), 5, 1, 60),
+    }
+
+
+def get_scan_settings() -> dict:
+    return normalize_scan_settings(_load().get("scan_settings"))
+
+
+def set_scan_settings(settings: dict) -> dict:
+    settings = normalize_scan_settings(settings)
+    d = _load()
+    d["scan_settings"] = settings
+    _save(d)
+    return settings
+
+
+def search_categories(q: str, limit: int = 8) -> list[dict]:
+    q = (q or "").strip()
+    if len(q) < 2:
+        return []
+    query = """query($q:String!,$first:Int!){searchCategories(query:$q,first:$first){edges{node{id name displayName}}}}"""
+    try:
+        data = _gql(query, {"q": q, "first": _clamp_int(limit, 8, 1, 20)})
+    except Exception:
+        return []
+    out = []
+    for edge in (((data.get("data") or {}).get("searchCategories") or {}).get("edges") or []):
+        node = edge.get("node") or {}
+        if node.get("id") and (node.get("displayName") or node.get("name")):
+            out.append({"id": str(node["id"]), "name": node.get("displayName") or node.get("name")})
+    return out
+
+
+def discover_scan_channels(settings: dict | None = None) -> dict:
+    settings = normalize_scan_settings(settings)
+    query = """query($id:ID!,$first:Int!,$after:Cursor){game(id:$id){id name streams(first:$first,after:$after,options:{sort:VIEWER_COUNT}){edges{cursor node{viewersCount broadcaster{login displayName}}} pageInfo{hasNextPage}}}}"""
+    channels: list[dict] = []
+    after = None
+    fetched = 0
+    first = 100
+    for _ in range(12):
+        try:
+            data = _gql(query, {"id": settings["category_id"], "first": first, "after": after}, timeout=12)
+        except Exception:
+            break
+        game = (data.get("data") or {}).get("game") or {}
+        streams = game.get("streams") or {}
+        edges = streams.get("edges") or []
+        if game.get("name"):
+            settings["category_name"] = game["name"]
+        if not edges:
+            break
+        for edge in edges:
+            fetched += 1
+            node = edge.get("node") or {}
+            broadcaster = node.get("broadcaster") or {}
+            viewers = int(node.get("viewersCount") or 0)
+            login = broadcaster.get("login")
+            if login and settings["min_viewers"] <= viewers <= settings["max_viewers"]:
+                channels.append({"login": login, "display_name": broadcaster.get("displayName") or login,
+                                 "viewers": viewers})
+                if len(channels) >= settings["max_channels"]:
+                    return {"settings": settings, "channels": channels, "fetched": fetched}
+        after = edges[-1].get("cursor")
+        if not after or not (streams.get("pageInfo") or {}).get("hasNextPage"):
+            break
+        last_viewers = int(((edges[-1].get("node") or {}).get("viewersCount")) or 0)
+        if last_viewers < settings["min_viewers"]:
+            break
+    return {"settings": settings, "channels": channels, "fetched": fetched}
 
 
 def get_goal() -> str:

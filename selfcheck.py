@@ -265,6 +265,24 @@ def check_message_rules_store():
         "min_chars": 20, "no_all_caps": True, "no_emotes": True}
 
 
+def check_scan_settings_store():
+    """Category-scan settings persistence and bounds (no network)."""
+    import pathlib
+    import tempfile
+    import radar.auth as a
+    tmp = pathlib.Path(tempfile.mkdtemp())
+    a.APP_DIR, a.STORE = tmp, tmp / "settings.json"
+    assert a.get_scan_settings() == {"category_name": "Just Chatting", "category_id": "509658",
+                                     "min_viewers": 10, "max_viewers": 99,
+                                     "max_channels": 20, "refresh_minutes": 5}
+    saved = a.set_scan_settings({"category_name": "Art", "category_id": "509660",
+                                 "min_viewers": "99", "max_viewers": "10",
+                                 "max_channels": "999", "refresh_minutes": "0"})
+    assert saved == {"category_name": "Art", "category_id": "509660",
+                     "min_viewers": 10, "max_viewers": 99,
+                     "max_channels": 50, "refresh_minutes": 1}
+
+
 def check_channel_store():
     """Channel persistence (temp dir, no network)."""
     import pathlib
@@ -292,4 +310,5 @@ if __name__ == "__main__":
     check_channel_store()
     check_gems()
     check_message_rules_store()
+    check_scan_settings_store()
     print("selfcheck OK")

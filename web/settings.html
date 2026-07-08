@@ -29,7 +29,10 @@
   .rules{display:grid;gap:.65rem;background:var(--sc);border:1px solid var(--outline);border-radius:12px;padding:.9rem;margin-bottom:.5rem}
   .rule{display:flex;align-items:center;justify-content:space-between;gap:1rem;color:var(--text-2);font-size:14px}
   .rule input[type="number"]{width:88px;background:var(--frame);border:1px solid var(--outline);border-radius:7px;color:var(--text);font-family:var(--mono);font-size:14px;padding:.45rem .55rem}
+  .rule input[type="text"]{flex:1;min-width:0;background:var(--frame);border:1px solid var(--outline);border-radius:7px;color:var(--text);font-family:var(--mono);font-size:14px;padding:.45rem .55rem}
   .rule input[type="checkbox"]{width:18px;height:18px;accent-color:var(--accent)}
+  .cats{display:grid;gap:.35rem;margin-top:-.3rem}.cat{background:var(--frame);border:1px solid var(--outline);border-radius:7px;color:var(--text-2);font-family:var(--mono);font-size:12px;text-align:left;padding:.45rem .6rem;cursor:pointer}.cat:hover{border-color:var(--accent);color:var(--text)}
+  .preview{font-family:var(--mono);font-size:11px;color:var(--text-2);line-height:1.6;margin-top:.55rem;white-space:pre-wrap}
   .brain{display:flex;align-items:center;gap:.7rem;background:var(--sc);border:1px solid var(--outline);border-radius:12px;padding:.8rem .9rem;margin-bottom:.5rem;cursor:pointer;transition:.12s}
   .brain:hover{border-color:var(--outline-strong);background:var(--sc-hi)}
   .brain.active{border-color:var(--accent);background:var(--accent-soft)}
@@ -67,6 +70,24 @@
     <span class="out" id="ruleout"></span>
   </div>
 
+  <h2>Category scan proof</h2>
+  <p class="help">Find live streams by category and viewer range before multi-channel chat joins them.</p>
+  <div class="rules">
+    <label class="rule"><span>Category</span><input id="catname" type="text" value="Just Chatting" autocomplete="off"></label>
+    <input id="catid" type="hidden" value="509658">
+    <div class="cats" id="catresults"></div>
+    <label class="rule"><span>Min viewers</span><input id="minviewers" type="number" min="0" max="1000000" step="1" value="10"></label>
+    <label class="rule"><span>Max viewers</span><input id="maxviewers" type="number" min="0" max="1000000" step="1" value="99"></label>
+    <label class="rule"><span>Max channels</span><input id="maxchannels" type="number" min="1" max="50" step="1" value="20"></label>
+    <label class="rule"><span>Refresh minutes</span><input id="refreshmins" type="number" min="1" max="60" step="1" value="5"></label>
+  </div>
+  <div class="actions">
+    <button class="btn" id="savescan">Save scan settings</button>
+    <button class="btn" id="previewscan">Preview channels</button>
+    <span class="out" id="scanstatus"></span>
+  </div>
+  <div class="preview" id="scanpreview"></div>
+
   <h2>Or pick a brain</h2>
   <div id="brains"></div>
 </div>
@@ -78,7 +99,12 @@
       gemout=document.getElementById("gemout"), gemhelp=document.getElementById("gemhelp"),
       minchars=document.getElementById("minchars"), noallcaps=document.getElementById("noallcaps"),
       noemotes=document.getElementById("noemotes"), saverules=document.getElementById("saverules"),
-      ruleout=document.getElementById("ruleout");
+      ruleout=document.getElementById("ruleout"), catname=document.getElementById("catname"),
+      catid=document.getElementById("catid"), catresults=document.getElementById("catresults"),
+      minviewers=document.getElementById("minviewers"), maxviewers=document.getElementById("maxviewers"),
+      maxchannels=document.getElementById("maxchannels"), refreshmins=document.getElementById("refreshmins"),
+      savescan=document.getElementById("savescan"), previewscan=document.getElementById("previewscan"),
+      scanstatus=document.getElementById("scanstatus"), scanpreview=document.getElementById("scanpreview"), catTimer=null;
 
   function renderBrains(list){
     brainsEl.innerHTML="";
@@ -109,7 +135,13 @@
     fetch("/message-rules").then(function(r){return r.json();}).then(function(r){
       minchars.value=r.min_chars||0; noallcaps.checked=!!r.no_all_caps; noemotes.checked=!!r.no_emotes;
     }).catch(function(){});
+    fetch("/scan-settings").then(function(r){return r.json();}).then(function(s){
+      catname.value=s.category_name||"Just Chatting"; catid.value=s.category_id||"509658";
+      minviewers.value=s.min_viewers||10; maxviewers.value=s.max_viewers||99;
+      maxchannels.value=s.max_channels||20; refreshmins.value=s.refresh_minutes||5;
+    }).catch(function(){});
   }
+  function scanPayload(){return {category_name:catname.value,category_id:catid.value,min_viewers:minviewers.value,max_viewers:maxviewers.value,max_channels:maxchannels.value,refresh_minutes:refreshmins.value};}
   saveBtn.onclick=function(){
     var g=goal.value.trim(); gemout.textContent="Saving…";
     fetch("/gems",{method:"POST",headers:J,body:JSON.stringify({goal:g})}).then(function(r){return r.json();}).then(function(r){
@@ -132,6 +164,27 @@
     })}).then(function(r){return r.json();}).then(function(r){
       ruleout.textContent=r.ok?"Saved — applies live":"Could not save.";
     }).catch(function(e){ ruleout.textContent="Error: "+e; });
+  };
+  catname.oninput=function(){
+    catid.value=""; clearTimeout(catTimer); var q=catname.value.trim(); if(q.length<2){catresults.innerHTML="";return;}
+    catTimer=setTimeout(function(){
+      fetch("/categories?q="+encodeURIComponent(q)).then(function(r){return r.json();}).then(function(list){
+        catresults.innerHTML=""; list.forEach(function(c){var b=document.createElement("button");b.type="button";b.className="cat";b.textContent=c.name;b.onclick=function(){catname.value=c.name;catid.value=c.id;catresults.innerHTML="";};catresults.appendChild(b);});
+      }).catch(function(){});
+    },250);
+  };
+  savescan.onclick=function(){
+    scanstatus.textContent="Saving…";
+    fetch("/scan-settings",{method:"POST",headers:J,body:JSON.stringify(scanPayload())}).then(function(r){return r.json();}).then(function(r){
+      scanstatus.textContent=r.ok?"Saved":"Could not save.";
+    }).catch(function(e){scanstatus.textContent="Error: "+e;});
+  };
+  previewscan.onclick=function(){
+    scanstatus.textContent="Finding channels…"; scanpreview.textContent="";
+    fetch("/scan-preview",{method:"POST",headers:J,body:JSON.stringify(scanPayload())}).then(function(r){return r.json();}).then(function(r){
+      var chans=r.channels||[]; scanstatus.textContent="Found "+chans.length+" channels";
+      scanpreview.textContent=chans.length?chans.map(function(c){return "#"+c.login+" · "+c.viewers+" viewers";}).join("\n"):"No matching live channels in this range.";
+    }).catch(function(e){scanstatus.textContent="Error: "+e;});
   };
   load();
 })();

@@ -166,6 +166,24 @@ def build_app(cfg: Config) -> web.Application:
         holder["message_rules"] = auth.set_message_rules(await request.json())
         return web.json_response({"ok": True, "message_rules": holder["message_rules"]})
 
+    async def categories(request):
+        q = request.query.get("q", "")
+        loop = asyncio.get_running_loop()
+        found = await loop.run_in_executor(None, auth.search_categories, q)
+        return web.json_response(found)
+
+    async def get_scan_settings(_r):
+        return web.json_response(auth.get_scan_settings())
+
+    async def set_scan_settings(request):
+        return web.json_response({"ok": True, "scan_settings": auth.set_scan_settings(await request.json())})
+
+    async def scan_preview(request):
+        body = await request.json()
+        loop = asyncio.get_running_loop()
+        preview = await loop.run_in_executor(None, auth.discover_scan_channels, body)
+        return web.json_response(preview)
+
     async def settings_page(_r):
         return web.FileResponse(WEB / "settings.html")
 
@@ -197,6 +215,10 @@ def build_app(cfg: Config) -> web.Application:
     app.router.add_post("/gems", set_gems)
     app.router.add_get("/message-rules", get_message_rules)
     app.router.add_post("/message-rules", set_message_rules)
+    app.router.add_get("/categories", categories)
+    app.router.add_get("/scan-settings", get_scan_settings)
+    app.router.add_post("/scan-settings", set_scan_settings)
+    app.router.add_post("/scan-preview", scan_preview)
 
     async def _start(_a):
         _refresh_custom()
